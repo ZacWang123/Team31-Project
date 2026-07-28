@@ -1,0 +1,22 @@
+install (latest) node from https://nodejs.org/en
+
+#check installation in terminal
+node -v
+npm -v
+
+run powershell as administrator
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+Y
+
+#in terminal
+npm create vite@latest client
+-choose react + javascript + oxlint
+
+cd client
+npm install
+
+#open webapp
+npm run dev
+
+#install map
+npm install leaflet react-leaflet
