@@ -19,6 +19,7 @@ npm install
 npm run dev
 
 #install map
-npm install leaflet react-leaflet
+
+npm install maplibre-gl
 
 npm install express mongoose cors dotenv

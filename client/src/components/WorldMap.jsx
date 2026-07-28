@@ -5,17 +5,15 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 const MAPTILER_KEY = 'b2kWQSPaeDhJ5B2PDkVO';
 const MAP_STYLE = `https://api.maptiler.com/maps/basic-v2/style.json?key=${MAPTILER_KEY}`;
 
-// Reliable GeoJSON source for world country polygons
 const WORLD_GEOJSON_URL =
   'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson';
 
-// Database mapping ISO codes to tags for future expansion
 const countryDataFromDB = [
   { iso: 'AUS', name: 'Australia', tags: ['warm'] },
 ];
 
 const FILTER_OPTIONS = [
-  { id: 'warm', label: '☀️ Warm / Hot' },
+  { id: 'warm', label: 'Warm / Hot' },
 ];
 
 const customZoomViews = {
@@ -31,12 +29,48 @@ const customZoomViews = {
 export default function WorldMap() {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const markersRef = useRef([]);
+  const popupRef = useRef(null);
 
   const [mapLoaded, setMapLoaded] = useState(false);
   const [activeFilters, setActiveFilters] = useState([]);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
+
+    // Inject global styles to override MapLibre's default constrained width and align the popup background container correctly with text sizing.
+    const styleTag = document.createElement('style');
+    styleTag.innerHTML = `
+      .maplibregl-popup {
+        max-width: 450px !important;
+      }
+      .maplibregl-popup-content {
+        background: #0f172a !important;
+        color: #f8fafc !important;
+        padding: 24px 32px !important;
+        border-radius: 16px !important;
+        border: 1px solid #334155 !important;
+        box-shadow: 0 12px 32px rgba(0,0,0,0.6) !important;
+      }
+      .maplibregl-popup-close-button {
+        font-size: 28px !important;
+        color: #94a3b8 !important;
+        padding: 6px 14px !important;
+        background: transparent !important;
+        border: none !important;
+        cursor: pointer !important;
+        line-height: 1 !important;
+      }
+      .maplibregl-popup-close-button:hover {
+        color: #ffffff !important;
+        background: rgba(255,255,255,0.08) !important;
+        border-radius: 50% !important;
+      }
+      .maplibregl-popup-tip {
+        border-top-color: #0f172a !important;
+      }
+    `;
+    document.head.appendChild(styleTag);
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
@@ -46,55 +80,158 @@ export default function WorldMap() {
       minZoom: 1.8,
       maxZoom: 10,
       renderWorldCopies: false,
+      pitchWithRotate: false,
+      dragRotate: false,
     });
 
     mapInstanceRef.current = map;
 
+    const updateMarkersVisibility = () => {
+      const SHOW_PINS_AT_ZOOM = 4.5;
+      const currentZoom = map.getZoom();
+      
+      markersRef.current.forEach(({ element }) => {
+        if (currentZoom < SHOW_PINS_AT_ZOOM) {
+          element.style.display = 'none';
+        } else {
+          element.style.display = 'block';
+        }
+      });
+    };
+
+    map.on('zoom', updateMarkersVisibility);
+    map.on('zoomend', updateMarkersVisibility);
+
     map.on('load', () => {
-      // Style MapTiler's built-in national boundary lines
       if (map.getLayer('admin_level_2')) {
         map.setPaintProperty('admin_level_2', 'line-color', '#1e293b');
         map.setPaintProperty('admin_level_2', 'line-width', 1.5);
       }
 
-      // Add world country polygons source
       map.addSource('world-polygons', {
         type: 'geojson',
         data: WORLD_GEOJSON_URL,
       });
 
-      // Layer to grey out non-matching countries
       map.addLayer({
         id: 'country-dim-overlay',
         type: 'fill',
         source: 'world-polygons',
         paint: {
-          'fill-color': '#0f172a', // Dark blue-gray dimming color
-          'fill-opacity': 0.75,     // Dim opacity
+          'fill-color': '#0f172a',
+          'fill-opacity': 0.75,
         },
-        // Initially show no dimming
         filter: ['in', ['get', 'ISO_A3'], ['literal', []]],
       });
+
+      map.addLayer({
+        id: 'country-click-layer',
+        type: 'fill',
+        source: 'world-polygons',
+        paint: {
+          'fill-opacity': 0,
+        },
+      });
+
+      fetch(WORLD_GEOJSON_URL)
+        .then((res) => res.json())
+        .then((data) => {
+          data.features.forEach((feature) => {
+            const props = feature.properties;
+            const countryName = props.NAME_LONG || props.ADMIN || props.name;
+
+            if (!feature.geometry || !feature.geometry.coordinates) return;
+
+            const extractCoordinates = (coords) => {
+              let points = [];
+              coords.forEach((item) => {
+                if (typeof item[0] === 'number') {
+                  points.push(item);
+                } else {
+                  points = points.concat(extractCoordinates(item));
+                }
+              });
+              return points;
+            };
+
+            const allPoints = extractCoordinates(feature.geometry.coordinates);
+            if (allPoints.length === 0) return;
+
+            const randomPoint = allPoints[Math.floor(Math.random() * allPoints.length)];
+
+            const el = document.createElement('div');
+            el.className = 'country-pin';
+            el.style.cssText = `
+              background-color: #ff4757;
+              width: 24px;
+              height: 24px;
+              border-radius: 50%;
+              border: 3px solid white;
+              box-shadow: 0 0 8px rgba(0,0,0,0.6);
+              cursor: pointer;
+            `;
+
+            el.addEventListener('click', (e) => {
+              e.stopPropagation();
+
+              if (popupRef.current) {
+                popupRef.current.remove();
+              }
+
+              const popupContent = document.createElement('div');
+              popupContent.style.cssText = `
+                font-family: sans-serif;
+                width: 320px;
+                padding-right: 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+              `;
+              popupContent.innerHTML = `
+                <div style="font-weight: 700; font-size: 24px; color: #38bdf8; line-height: 1.2;">${countryName || 'Destination'}</div>
+                <div style="font-size: 16px; color: #cbd5e1; line-height: 1.5;">Package Placeholder details and descriptions go here for the selected destination.</div>
+              `;
+
+              const popup = new maplibregl.Popup({ offset: 35, closeButton: true, maxWidth: 'none' })
+                .setLngLat(randomPoint)
+                .setDOMContent(popupContent)
+                .addTo(map);
+
+              popupRef.current = popup;
+
+              if (countryName && customZoomViews[countryName]) {
+                const { center, zoom } = customZoomViews[countryName];
+                map.flyTo({ center, zoom, essential: true, duration: 1200 });
+              }
+            });
+
+            const marker = new maplibregl.Marker({ element: el })
+              .setLngLat(randomPoint)
+              .addTo(map);
+
+            markersRef.current.push({ marker, element: el });
+          });
+
+          updateMarkersVisibility();
+        });
 
       setMapLoaded(true);
     });
 
-    // Hover cursor for country labels
-    map.on('mousemove', (e) => {
-      const features = map.queryRenderedFeatures(e.point);
-      const isOverCountry = features.some((f) => f.properties?.class === 'country');
-      map.getCanvas().style.cursor = isOverCountry ? 'pointer' : '';
+    map.on('mousemove', 'country-click-layer', () => {
+      map.getCanvas().style.cursor = 'pointer';
     });
 
-    // Direct click on a country to zoom
-    map.on('click', (e) => {
-      const features = map.queryRenderedFeatures(e.point);
-      const countryFeature = features.find((f) => f.properties?.class === 'country');
+    map.on('mouseleave', 'country-click-layer', () => {
+      map.getCanvas().style.cursor = '';
+    });
 
-      if (!countryFeature) return;
+    map.on('click', 'country-click-layer', (e) => {
+      const feature = e.features?.[0];
+      if (!feature) return;
 
-      const props = countryFeature.properties;
-      const countryName = props?.name_en || props?.name;
+      const props = feature.properties;
+      const countryName = props?.NAME_LONG || props?.ADMIN || props?.name_en || props?.name;
 
       if (countryName && customZoomViews[countryName]) {
         const { center, zoom } = customZoomViews[countryName];
@@ -102,40 +239,53 @@ export default function WorldMap() {
         return;
       }
 
-      if (countryFeature.geometry?.type === 'Point') {
-        map.flyTo({
-          center: countryFeature.geometry.coordinates,
-          zoom: 4.5,
-          essential: true,
-          duration: 1200,
-        });
+      const bounds = new maplibregl.LngLatBounds();
+      const geometry = feature.geometry;
+
+      if (geometry) {
+        const processCoords = (arr) => {
+          arr.forEach((item) => {
+            if (typeof item[0] === 'number') {
+              bounds.extend(item);
+            } else {
+              processCoords(item);
+            }
+          });
+        };
+        processCoords(geometry.coordinates);
+
+        if (!bounds.isEmpty()) {
+          map.fitBounds(bounds, {
+            padding: 40,
+            maxZoom: 6,
+            duration: 1200,
+            essential: true,
+          });
+        }
       }
     });
 
     return () => {
       map.remove();
+      styleTag.remove();
     };
   }, []);
 
-  // Update dimming filter whenever activeFilters change
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !mapLoaded) return;
 
     if (activeFilters.length === 0) {
-      // No filter selected: show all countries normally
       map.setFilter('country-dim-overlay', ['in', ['get', 'ISO_A3'], ['literal', []]]);
       return;
     }
 
-    // Find country ISO codes that match ALL active filters
     const matchingIsos = countryDataFromDB
       .filter((country) =>
         activeFilters.every((filter) => country.tags.includes(filter))
       )
       .map((c) => c.iso);
 
-    // Grey out every country NOT in matchingIsos
     map.setFilter('country-dim-overlay', [
       '!',
       [
@@ -158,7 +308,6 @@ export default function WorldMap() {
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
 
-      {/* Filter Panel (Bottom-Left) */}
       <div style={filterPanelStyle}>
         <div style={filterHeaderStyle}>Filter Destinations</div>
         <div style={chipContainerStyle}>
@@ -182,7 +331,6 @@ export default function WorldMap() {
         </div>
       </div>
 
-      {/* Navigation Controls */}
       <div style={desktopControlsStyle}>
         <button
           style={desktopBtnStyle}
@@ -213,7 +361,6 @@ export default function WorldMap() {
   );
 }
 
-// Styling
 const filterPanelStyle = {
   position: 'absolute',
   bottom: '24px',
