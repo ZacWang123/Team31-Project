@@ -10,10 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "leaflet": "^1.9.4",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "maplibre-gl": "^6.0.0",
+    "mongoose": "^9.8.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-leaflet": "^5.0.0"
+    "react-map-gl": "^8.1.1"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

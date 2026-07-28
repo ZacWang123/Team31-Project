@@ -1,13 +1,11 @@
-import WorldMap from "./components/WorldMap";
-
+import WorldMap from './components/WorldMap';
 
 function App() {
-
   return (
-    <WorldMap />
+    <main style={{ margin: 0, padding: 0, width: '100vw', height: '100vh' }}>
+      <WorldMap />
+    </main>
   );
-
 }
-
 
 export default App;
