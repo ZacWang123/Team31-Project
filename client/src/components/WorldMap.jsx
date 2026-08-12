@@ -308,11 +308,15 @@ export default function WorldMap() {
 
     // Pins for destinations that don't match the active filters fade out;
     // everything else (including pins with no inferred tag) stays visible.
-    markersRef.current.forEach(({ element, destination }) => {
+    // IMPORTANT: use marker.setOpacity(), not element.style.opacity directly -
+    // MapLibre's Marker re-applies its own internal opacity on every map
+    // render (including mid-flyTo/fitBounds), so a raw style write gets
+    // silently clobbered back to 1 the moment the camera next moves.
+    markersRef.current.forEach(({ marker, element, destination }) => {
       const matches =
         activeFilters.length === 0 ||
         activeFilters.some((filter) => destination.tags.includes(filter));
-      element.style.opacity = matches ? '1' : '0.25';
+      marker.setOpacity(matches ? '1' : '0.25');
       element.style.pointerEvents = matches ? 'auto' : 'none';
     });
 
