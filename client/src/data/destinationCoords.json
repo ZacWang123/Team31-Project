@@ -1,0 +1,186 @@
+{
+  "Antarctica": {
+    "query": "Antarctica",
+    "lat": -72.8438691,
+    "lon": 0.0,
+    "display_name": "Antarctica",
+    "type": "continent",
+    "country_code": null
+  },
+  "Aspen": {
+    "query": "Aspen, Colorado, USA",
+    "lat": 39.1911128,
+    "lon": -106.82356,
+    "display_name": "Aspen, Pitkin County, Colorado, United States",
+    "type": "administrative",
+    "country_code": "us"
+  },
+  "Canada": {
+    "query": "Canada",
+    "lat": 61.0666922,
+    "lon": -107.991707,
+    "display_name": "Canada",
+    "type": "administrative",
+    "country_code": "ca"
+  },
+  "China": {
+    "query": "China",
+    "lat": 34.5412252,
+    "lon": 108.9237067,
+    "display_name": "\u4e2d\u56fd",
+    "type": "administrative",
+    "country_code": "cn"
+  },
+  "Delhi": {
+    "query": "Delhi, India",
+    "lat": 28.6328027,
+    "lon": 77.2197713,
+    "display_name": "Delhi, India",
+    "type": "administrative",
+    "country_code": "in"
+  },
+  "Doha": {
+    "query": "Doha, Qatar",
+    "lat": 25.3108807,
+    "lon": 51.5081812,
+    "display_name": "\u0627\u0644\u062f\u0648\u062d\u0629, \u0642\u0637\u0631",
+    "type": "administrative",
+    "country_code": "qa"
+  },
+  "Fiji": {
+    "query": "Fiji",
+    "lat": -18.1239696,
+    "lon": 179.0122737,
+    "display_name": "Viti",
+    "type": "administrative",
+    "country_code": "fj"
+  },
+  "India": {
+    "query": "India",
+    "lat": 22.3511148,
+    "lon": 78.6677428,
+    "display_name": "India",
+    "type": "administrative",
+    "country_code": "in"
+  },
+  "Japan": {
+    "query": "Japan",
+    "lat": 36.5748441,
+    "lon": 139.2394179,
+    "display_name": "\u65e5\u672c",
+    "type": "administrative",
+    "country_code": "jp"
+  },
+  "Maldives": {
+    "query": "Maldives",
+    "lat": 3.7203503,
+    "lon": 73.2244152,
+    "display_name": "\u078b\u07a8\u0788\u07ac\u0780\u07a8\u0783\u07a7\u0787\u07b0\u0796\u07ac",
+    "type": "administrative",
+    "country_code": "mv"
+  },
+  "New Zealand": {
+    "query": "New Zealand",
+    "lat": -41.5000831,
+    "lon": 172.8344077,
+    "display_name": "New Zealand / Aotearoa",
+    "type": "administrative",
+    "country_code": "nz"
+  },
+  "North Island": {
+    "query": "North Island, New Zealand",
+    "lat": -38.0035304,
+    "lon": 175.957821,
+    "display_name": "North Island / Te Ika-a-M\u0101ui, New Zealand / Aotearoa",
+    "type": "island",
+    "country_code": "nz"
+  },
+  "Perisher": {
+    "query": "Perisher, New South Wales, Australia",
+    "lat": -36.3961667,
+    "lon": 148.408582,
+    "display_name": "Perisher, Perisher Valley, New South Wales, 2624, Australia",
+    "type": "winter_sports",
+    "country_code": "au"
+  },
+  "Phuket": {
+    "query": "Phuket, Thailand",
+    "lat": 7.9366015,
+    "lon": 98.3529292,
+    "display_name": "\u0e08\u0e31\u0e07\u0e2b\u0e27\u0e31\u0e14\u0e20\u0e39\u0e40\u0e01\u0e47\u0e15, \u0e1b\u0e23\u0e30\u0e40\u0e17\u0e28\u0e44\u0e17\u0e22",
+    "type": "administrative",
+    "country_code": "th"
+  },
+  "Queensland": {
+    "query": "Queensland, Australia",
+    "lat": -22.1646782,
+    "lon": 144.5844903,
+    "display_name": "Queensland, Australia",
+    "type": "administrative",
+    "country_code": "au"
+  },
+  "Queenstown": {
+    "query": "Queenstown, New Zealand",
+    "lat": -45.0321923,
+    "lon": 168.661,
+    "display_name": "Queenstown, Queenstown-Lakes District, Otago, 9348, New Zealand / Aotearoa",
+    "type": "town",
+    "country_code": "nz"
+  },
+  "Singapore": {
+    "query": "Singapore",
+    "lat": 1.357107,
+    "lon": 103.8194992,
+    "display_name": "Singapore",
+    "type": "administrative",
+    "country_code": "sg"
+  },
+  "Southeast Asia": {
+    "query": "Ho Chi Minh City, Vietnam",
+    "lat": 10.7737261,
+    "lon": 106.7166008,
+    "display_name": "Th\u00e0nh ph\u1ed1 H\u1ed3 Ch\u00ed Minh, Vi\u1ec7t Nam",
+    "type": "administrative",
+    "country_code": "vn"
+  },
+  "Tasmania": {
+    "query": "Tasmania, Australia",
+    "lat": -42.035067,
+    "lon": 146.6366887,
+    "display_name": "Tasmania, Australia",
+    "type": "administrative",
+    "country_code": "au"
+  },
+  "Thredbo": {
+    "query": "Thredbo, New South Wales, Australia",
+    "lat": -36.5047751,
+    "lon": 148.3057091,
+    "display_name": "Thredbo, New South Wales, 2625, Australia",
+    "type": "administrative",
+    "country_code": "au"
+  },
+  "Townsville": {
+    "query": "Townsville, Queensland, Australia",
+    "lat": -19.2569391,
+    "lon": 146.8239537,
+    "display_name": "Townsville, Queensland, 4810, Australia",
+    "type": "city",
+    "country_code": "au"
+  },
+  "United Kingdom": {
+    "query": "United Kingdom",
+    "lat": 54.7023545,
+    "lon": -3.2765753,
+    "display_name": "United Kingdom",
+    "type": "administrative",
+    "country_code": "gb"
+  },
+  "Vietnam": {
+    "query": "Vietnam",
+    "lat": 15.9266657,
+    "lon": 107.9650855,
+    "display_name": "Vi\u1ec7t Nam",
+    "type": "administrative",
+    "country_code": "vn"
+  }
+}

@@ -1,0 +1,5 @@
+# OS
+.DS_Store
+
+# Internal / sensitive data - do not publish
+FlightCentre_DB.csv

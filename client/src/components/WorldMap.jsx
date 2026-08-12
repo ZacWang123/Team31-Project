@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import packagesData from '../data/packages.json';
 
 const MAPTILER_KEY = 'b2kWQSPaeDhJ5B2PDkVO';
 const MAP_STYLE = `https://api.maptiler.com/maps/basic-v2/style.json?key=${MAPTILER_KEY}`;
@@ -8,23 +9,83 @@ const MAP_STYLE = `https://api.maptiler.com/maps/basic-v2/style.json?key=${MAPTI
 const WORLD_GEOJSON_URL =
   'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson';
 
-const countryDataFromDB = [
-  { iso: 'AUS', name: 'Australia', tags: ['warm'] },
+// Keyword tags derived from package name / wow-factor text (no product-category
+// codebook was supplied with FlightCentre_DB.csv, so these are inferred, not
+// authoritative - swap in real category labels if/when a codebook is available).
+const TAG_RULES = [
+  { id: 'ski', label: 'Ski & Snow', test: /ski|snow/i },
+  { id: 'cruise', label: 'Cruise', test: /cruise|sail/i },
+  { id: 'all-inclusive', label: 'All-Inclusive', test: /all-inclusive/i },
+  { id: 'stopover', label: 'Stopover', test: /stopover/i },
+  { id: 'tour', label: 'Tours & Expeditions', test: /tour|express|explorer|discovery|expedition/i },
 ];
 
-const FILTER_OPTIONS = [
-  { id: 'warm', label: 'Warm / Hot' },
-];
+const FILTER_OPTIONS = TAG_RULES.map(({ id, label }) => ({ id, label }));
 
 const customZoomViews = {
-  Australia: { center: [133.7751, -25.2744], zoom: 3.8 },
-  'United States': { center: [-95.7129, 37.0902], zoom: 3.5 },
-  Russia: { center: [105.3188, 61.524], zoom: 3 },
-  Brazil: { center: [-51.9253, -14.235], zoom: 3.5 },
-  Canada: { center: [-106.3468, 56.1304], zoom: 3 },
-  Argentina: { center: [-63.6167, -38.4161], zoom: 3.5 },
-  'New Zealand': { center: [174.886, -40.9006], zoom: 4.5 },
+  Australia: { center: [133.7751, -25.2744], zoom: 4.6 },
+  'United States': { center: [-95.7129, 37.0902], zoom: 4.6 },
+  Canada: { center: [-106.3468, 56.1304], zoom: 4.6 },
+  'New Zealand': { center: [174.886, -40.9006], zoom: 4.6 },
 };
+
+// Group the flat CSV rows into one pin per destination, each carrying every
+// package on offer there.
+function buildDestinations() {
+  const byDestination = new Map();
+
+  packagesData.forEach((pkg) => {
+    if (!byDestination.has(pkg.destination)) {
+      byDestination.set(pkg.destination, {
+        destination: pkg.destination,
+        lat: pkg.lat,
+        lon: pkg.lon,
+        iso3: pkg.iso3,
+        tags: new Set(),
+        packages: [],
+      });
+    }
+    const entry = byDestination.get(pkg.destination);
+    entry.packages.push(pkg);
+
+    const haystack = `${pkg.packageName || ''} ${pkg.wowFactor || ''}`;
+    TAG_RULES.forEach(({ id, test }) => {
+      if (test.test(haystack)) entry.tags.add(id);
+    });
+  });
+
+  return Array.from(byDestination.values()).map((d) => ({
+    ...d,
+    tags: Array.from(d.tags),
+  }));
+}
+
+function formatPrice(price) {
+  if (price == null) return null;
+  return price.toLocaleString('en-AU', { style: 'currency', currency: 'AUD', maximumFractionDigits: 0 });
+}
+
+function buildPopupHTML(dest) {
+  const packagesHTML = dest.packages
+    .map((pkg) => {
+      const price = formatPrice(pkg.fromPrice);
+      return `
+        <div style="padding: 10px 0; border-top: 1px solid #334155;">
+          <div style="font-weight: 600; font-size: 15px; color: #f8fafc;">${pkg.packageName || 'Package'}</div>
+          ${pkg.wowFactor ? `<div style="font-size: 13px; color: #38bdf8; margin-top: 2px;">${pkg.wowFactor}</div>` : ''}
+          ${price ? `<div style="font-size: 13px; color: #cbd5e1; margin-top: 4px;">From ${price}*</div>` : ''}
+        </div>
+      `;
+    })
+    .join('');
+
+  return `
+    <div style="font-family: sans-serif; width: 320px; padding-right: 16px;">
+      <div style="font-weight: 700; font-size: 24px; color: #38bdf8; line-height: 1.2;">${dest.destination}</div>
+      <div style="max-height: 280px; overflow-y: auto; margin-top: 6px;">${packagesHTML}</div>
+    </div>
+  `;
+}
 
 export default function WorldMap() {
   const mapContainerRef = useRef(null);
@@ -34,6 +95,8 @@ export default function WorldMap() {
 
   const [mapLoaded, setMapLoaded] = useState(false);
   const [activeFilters, setActiveFilters] = useState([]);
+
+  const destinations = useMemo(() => buildDestinations(), []);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -86,22 +149,6 @@ export default function WorldMap() {
 
     mapInstanceRef.current = map;
 
-    const updateMarkersVisibility = () => {
-      const SHOW_PINS_AT_ZOOM = 4.5;
-      const currentZoom = map.getZoom();
-      
-      markersRef.current.forEach(({ element }) => {
-        if (currentZoom < SHOW_PINS_AT_ZOOM) {
-          element.style.display = 'none';
-        } else {
-          element.style.display = 'block';
-        }
-      });
-    };
-
-    map.on('zoom', updateMarkersVisibility);
-    map.on('zoomend', updateMarkersVisibility);
-
     map.on('load', () => {
       if (map.getLayer('admin_level_2')) {
         map.setPaintProperty('admin_level_2', 'line-color', '#1e293b');
@@ -133,87 +180,49 @@ export default function WorldMap() {
         },
       });
 
-      fetch(WORLD_GEOJSON_URL)
-        .then((res) => res.json())
-        .then((data) => {
-          data.features.forEach((feature) => {
-            const props = feature.properties;
-            const countryName = props.NAME_LONG || props.ADMIN || props.name;
+      // Real destination pins, sourced from FlightCentre_DB.csv (geocoded via
+      // OpenStreetMap Nominatim - see client/src/data/packages.json).
+      destinations.forEach((dest) => {
+        const el = document.createElement('div');
+        el.className = 'country-pin';
+        el.style.cssText = `
+          background-color: #ff4757;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          border: 3px solid white;
+          box-shadow: 0 0 8px rgba(0,0,0,0.6);
+          cursor: pointer;
+        `;
 
-            if (!feature.geometry || !feature.geometry.coordinates) return;
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
 
-            const extractCoordinates = (coords) => {
-              let points = [];
-              coords.forEach((item) => {
-                if (typeof item[0] === 'number') {
-                  points.push(item);
-                } else {
-                  points = points.concat(extractCoordinates(item));
-                }
-              });
-              return points;
-            };
+          if (popupRef.current) {
+            popupRef.current.remove();
+          }
 
-            const allPoints = extractCoordinates(feature.geometry.coordinates);
-            if (allPoints.length === 0) return;
+          const popup = new maplibregl.Popup({ offset: 20, closeButton: true, maxWidth: 'none' })
+            .setLngLat([dest.lon, dest.lat])
+            .setHTML(buildPopupHTML(dest))
+            .addTo(map);
 
-            const randomPoint = allPoints[Math.floor(Math.random() * allPoints.length)];
+          popupRef.current = popup;
 
-            const el = document.createElement('div');
-            el.className = 'country-pin';
-            el.style.cssText = `
-              background-color: #ff4757;
-              width: 24px;
-              height: 24px;
-              border-radius: 50%;
-              border: 3px solid white;
-              box-shadow: 0 0 8px rgba(0,0,0,0.6);
-              cursor: pointer;
-            `;
-
-            el.addEventListener('click', (e) => {
-              e.stopPropagation();
-
-              if (popupRef.current) {
-                popupRef.current.remove();
-              }
-
-              const popupContent = document.createElement('div');
-              popupContent.style.cssText = `
-                font-family: sans-serif;
-                width: 320px;
-                padding-right: 16px;
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-              `;
-              popupContent.innerHTML = `
-                <div style="font-weight: 700; font-size: 24px; color: #38bdf8; line-height: 1.2;">${countryName || 'Destination'}</div>
-                <div style="font-size: 16px; color: #cbd5e1; line-height: 1.5;">Package Placeholder details and descriptions go here for the selected destination.</div>
-              `;
-
-              const popup = new maplibregl.Popup({ offset: 35, closeButton: true, maxWidth: 'none' })
-                .setLngLat(randomPoint)
-                .setDOMContent(popupContent)
-                .addTo(map);
-
-              popupRef.current = popup;
-
-              if (countryName && customZoomViews[countryName]) {
-                const { center, zoom } = customZoomViews[countryName];
-                map.flyTo({ center, zoom, essential: true, duration: 1200 });
-              }
-            });
-
-            const marker = new maplibregl.Marker({ element: el })
-              .setLngLat(randomPoint)
-              .addTo(map);
-
-            markersRef.current.push({ marker, element: el });
-          });
-
-          updateMarkersVisibility();
+          const zoomView = customZoomViews[dest.destination];
+          if (zoomView) {
+            map.flyTo({ ...zoomView, essential: true, duration: 1200 });
+          } else {
+            map.flyTo({ center: [dest.lon, dest.lat], zoom: Math.max(map.getZoom(), 5), essential: true, duration: 1200 });
+          }
         });
+
+        const marker = new maplibregl.Marker({ element: el })
+          .setLngLat([dest.lon, dest.lat])
+          .addTo(map);
+
+        markersRef.current.push({ marker, element: el, destination: dest });
+      });
 
       setMapLoaded(true);
     });
@@ -269,32 +278,40 @@ export default function WorldMap() {
       map.remove();
       styleTag.remove();
     };
-  }, []);
+  }, [destinations]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !mapLoaded) return;
+
+    // Pins for destinations that don't match the active filters fade out;
+    // everything else (including pins with no inferred tag) stays visible.
+    markersRef.current.forEach(({ element, destination }) => {
+      const matches =
+        activeFilters.length === 0 ||
+        activeFilters.some((filter) => destination.tags.includes(filter));
+      element.style.opacity = matches ? '1' : '0.25';
+      element.style.pointerEvents = matches ? 'auto' : 'none';
+    });
 
     if (activeFilters.length === 0) {
       map.setFilter('country-dim-overlay', ['in', ['get', 'ISO_A3'], ['literal', []]]);
       return;
     }
 
-    const matchingIsos = countryDataFromDB
-      .filter((country) =>
-        activeFilters.every((filter) => country.tags.includes(filter))
-      )
-      .map((c) => c.iso);
+    const matchingIso3 = destinations
+      .filter((d) => d.iso3 && activeFilters.some((filter) => d.tags.includes(filter)))
+      .map((d) => d.iso3);
 
     map.setFilter('country-dim-overlay', [
       '!',
       [
         'in',
         ['coalesce', ['get', 'ISO_A3'], ['get', 'iso_a3'], ['get', 'ADM0_A3']],
-        ['literal', matchingIsos],
+        ['literal', matchingIso3],
       ],
     ]);
-  }, [activeFilters, mapLoaded]);
+  }, [activeFilters, mapLoaded, destinations]);
 
   const toggleFilter = (filterId) => {
     setActiveFilters((prev) =>
