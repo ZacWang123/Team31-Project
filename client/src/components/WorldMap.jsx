@@ -92,6 +92,8 @@ export default function WorldMap() {
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
   const popupRef = useRef(null);
+  const preZoomViewRef = useRef(null);
+  const popupSessionRef = useRef(0);
 
   const [mapLoaded, setMapLoaded] = useState(false);
   const [activeFilters, setActiveFilters] = useState([]);
@@ -198,6 +200,18 @@ export default function WorldMap() {
         el.addEventListener('click', (e) => {
           e.stopPropagation();
 
+          // Remember where the camera was before flying in, so closing the
+          // popup can fly back out to it. Capture this BEFORE removing any
+          // existing popup, so switching directly between pins doesn't
+          // clobber it with the already-zoomed-in view.
+          preZoomViewRef.current = { center: map.getCenter().toArray(), zoom: map.getZoom() };
+
+          // Bump the session so the *old* popup's 'close' handler (fired by
+          // the .remove() below) knows it's stale and skips the zoom-out -
+          // otherwise switching pins would zoom out then immediately back in.
+          popupSessionRef.current += 1;
+          const session = popupSessionRef.current;
+
           if (popupRef.current) {
             popupRef.current.remove();
           }
@@ -206,6 +220,14 @@ export default function WorldMap() {
             .setLngLat([dest.lon, dest.lat])
             .setHTML(buildPopupHTML(dest))
             .addTo(map);
+
+          popup.on('close', () => {
+            if (popupSessionRef.current !== session) return;
+            const view = preZoomViewRef.current;
+            if (view) {
+              map.flyTo({ center: view.center, zoom: view.zoom, essential: true, duration: 1000 });
+            }
+          });
 
           popupRef.current = popup;
 
