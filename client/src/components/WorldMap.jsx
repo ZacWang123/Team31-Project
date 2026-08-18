@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import packagesData from '../data/packages.json';
+import { useTravelProfile } from '../context/TravelProfileContext';
 import './WorldMap.css';
 
 const MAPTILER_KEY = 'b2kWQSPaeDhJ5B2PDkVO';
@@ -10,9 +11,6 @@ const MAP_STYLE = `https://api.maptiler.com/maps/basic-v2/style.json?key=${MAPTI
 const WORLD_GEOJSON_URL =
   'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson';
 
-// Keyword tags derived from package name / wow-factor text (no product-category
-// codebook was supplied with FlightCentre_DB.csv, so these are inferred, not
-// authoritative - swap in real category labels if/when a codebook is available).
 const TAG_RULES = [
   { id: 'ski', label: 'Ski & Snow', test: /ski|snow/i },
   { id: 'cruise', label: 'Cruise', test: /cruise|sail/i },
@@ -30,8 +28,6 @@ const customZoomViews = {
   'New Zealand': { center: [174.886, -40.9006], zoom: 4.6 },
 };
 
-// Group the flat CSV rows into one pin per destination, each carrying every
-// package on offer there.
 function buildDestinations() {
   const byDestination = new Map();
 
@@ -61,11 +57,6 @@ function buildDestinations() {
   }));
 }
 
-function formatPrice(price) {
-  if (price == null) return null;
-  return price.toLocaleString('en-AU', { style: 'currency', currency: 'AUD', maximumFractionDigits: 0 });
-}
-
 function buildPopupHTML(dest) {
   const maxVisible = 3;
   const visiblePackages = dest.packages.slice(0, maxVisible);
@@ -73,7 +64,6 @@ function buildPopupHTML(dest) {
 
   const packagesHTML = visiblePackages
     .map((pkg) => {
-      // Use package image URL or fallback placeholder image if missing
       const imgSrc =
         pkg.imageUrl ||
         pkg.image ||
@@ -122,12 +112,14 @@ export default function WorldMap() {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [activeFilters, setActiveFilters] = useState([]);
 
+  const { trackFilterClick, trackPackageClick } = useTravelProfile();
+
   const destinations = useMemo(() => buildDestinations(), []);
 
+  // 1. Initialize Map once on mount
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    // Inject global styles to override MapLibre's default constrained width and align the popup background container correctly with text sizing.
     const styleTag = document.createElement('style');
     styleTag.innerHTML = `
       .maplibregl-popup {
@@ -206,8 +198,6 @@ export default function WorldMap() {
         },
       });
 
-      // Real destination pins, sourced from FlightCentre_DB.csv (geocoded via
-      // OpenStreetMap Nominatim - see client/src/data/packages.json).
       destinations.forEach((dest) => {
         const el = document.createElement('div');
         el.className = 'country-pin';
@@ -224,15 +214,12 @@ export default function WorldMap() {
         el.addEventListener('click', (e) => {
           e.stopPropagation();
 
-          // Remember where the camera was before flying in, so closing the
-          // popup can fly back out to it. Capture this BEFORE removing any
-          // existing popup, so switching directly between pins doesn't
-          // clobber it with the already-zoomed-in view.
+          if (dest.packages.length > 0) {
+            trackPackageClick(dest.packages[0]);
+          }
+
           preZoomViewRef.current = { center: map.getCenter().toArray(), zoom: map.getZoom() };
 
-          // Bump the session so the *old* popup's 'close' handler (fired by
-          // the .remove() below) knows it's stale and skips the zoom-out -
-          // otherwise switching pins would zoom out then immediately back in.
           popupSessionRef.current += 1;
           const session = popupSessionRef.current;
 
@@ -321,49 +308,54 @@ export default function WorldMap() {
     });
 
     return () => {
+      markersRef.current.forEach(({ marker }) => marker.remove());
+      markersRef.current = [];
       map.remove();
       styleTag.remove();
     };
-  }, [destinations]);
+  }, []); // Empty array ensures map is initialized only once
 
+  // 2. Handle filter changes separately without re-mounting the map
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map || !mapLoaded) return;
+    if (!map || !mapLoaded || !map.isStyleLoaded()) return;
 
-    // Pins for destinations that don't match the active filters fade out;
-    // everything else (including pins with no inferred tag) stays visible.
-    // IMPORTANT: use marker.setOpacity(), not element.style.opacity directly -
-    // MapLibre's Marker re-applies its own internal opacity on every map
-    // render (including mid-flyTo/fitBounds), so a raw style write gets
-    // silently clobbered back to 1 the moment the camera next moves.
     markersRef.current.forEach(({ marker, element, destination }) => {
       const matches =
         activeFilters.length === 0 ||
         activeFilters.some((filter) => destination.tags.includes(filter));
-      marker.setOpacity(matches ? '1' : '0.25');
+      marker.getElement().style.opacity = matches ? '1' : '0.25';
       element.style.pointerEvents = matches ? 'auto' : 'none';
     });
 
-    if (activeFilters.length === 0) {
-      map.setFilter('country-dim-overlay', ['in', ['get', 'ISO_A3'], ['literal', []]]);
-      return;
+    try {
+      if (activeFilters.length === 0) {
+        map.setFilter('country-dim-overlay', ['in', ['get', 'ISO_A3'], ['literal', []]]);
+        return;
+      }
+
+      const matchingIso3 = destinations
+        .filter((d) => d.iso3 && activeFilters.some((filter) => d.tags.includes(filter)))
+        .map((d) => d.iso3);
+
+      map.setFilter('country-dim-overlay', [
+        '!',
+        [
+          'in',
+          ['coalesce', ['get', 'ISO_A3'], ['get', 'iso_a3'], ['get', 'ADM0_A3']],
+          ['literal', matchingIso3],
+        ],
+      ]);
+    } catch (err) {
+      console.error('Failed to update map filter:', err);
     }
-
-    const matchingIso3 = destinations
-      .filter((d) => d.iso3 && activeFilters.some((filter) => d.tags.includes(filter)))
-      .map((d) => d.iso3);
-
-    map.setFilter('country-dim-overlay', [
-      '!',
-      [
-        'in',
-        ['coalesce', ['get', 'ISO_A3'], ['get', 'iso_a3'], ['get', 'ADM0_A3']],
-        ['literal', matchingIso3],
-      ],
-    ]);
   }, [activeFilters, mapLoaded, destinations]);
 
   const toggleFilter = (filterId) => {
+    if (!activeFilters.includes(filterId)) {
+      trackFilterClick(filterId);
+    }
+
     setActiveFilters((prev) =>
       prev.includes(filterId)
         ? prev.filter((id) => id !== filterId)
