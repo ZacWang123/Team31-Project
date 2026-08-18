@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import packagesData from '../data/packages.json';
+import './WorldMap.css';
 
 const MAPTILER_KEY = 'b2kWQSPaeDhJ5B2PDkVO';
 const MAP_STYLE = `https://api.maptiler.com/maps/basic-v2/style.json?key=${MAPTILER_KEY}`;
@@ -66,23 +67,46 @@ function formatPrice(price) {
 }
 
 function buildPopupHTML(dest) {
-  const packagesHTML = dest.packages
+  const maxVisible = 3;
+  const visiblePackages = dest.packages.slice(0, maxVisible);
+  const remainingCount = dest.packages.length - maxVisible;
+
+  const packagesHTML = visiblePackages
     .map((pkg) => {
-      const price = formatPrice(pkg.fromPrice);
+      // Use package image URL or fallback placeholder image if missing
+      const imgSrc =
+        pkg.imageUrl ||
+        pkg.image ||
+        'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
+
+      const price = pkg.fromPrice
+        ? `$${pkg.fromPrice.toLocaleString('en-AU')}`
+        : null;
+
       return `
-        <div style="padding: 10px 0; border-top: 1px solid #334155;">
-          <div style="font-weight: 600; font-size: 15px; color: #f8fafc;">${pkg.packageName || 'Package'}</div>
-          ${pkg.wowFactor ? `<div style="font-size: 13px; color: #38bdf8; margin-top: 2px;">${pkg.wowFactor}</div>` : ''}
-          ${price ? `<div style="font-size: 13px; color: #cbd5e1; margin-top: 4px;">From ${price}*</div>` : ''}
+        <div class="package-card">
+          <div class="thumbnail-wrapper">
+            <img src="${imgSrc}" alt="${pkg.packageName || 'Package'}" class="thumbnail-img" />
+            ${price ? `<span class="price-tag">From ${price}</span>` : ''}
+          </div>
+          <div class="card-body">
+            <div class="package-title">${pkg.packageName || 'Package'}</div>
+            ${pkg.wowFactor ? `<div class="wow-factor">${pkg.wowFactor}</div>` : ''}
+          </div>
         </div>
       `;
     })
     .join('');
 
   return `
-    <div style="font-family: sans-serif; width: 320px; padding-right: 16px;">
-      <div style="font-weight: 700; font-size: 24px; color: #38bdf8; line-height: 1.2;">${dest.destination}</div>
-      <div style="max-height: 280px; overflow-y: auto; margin-top: 6px;">${packagesHTML}</div>
+    <div class="popup-container">
+      <div class="popup-header">${dest.destination}</div>
+      <div class="package-list">${packagesHTML}</div>
+      ${
+        remainingCount > 0
+          ? `<button class="browse-more-btn">Browse ${remainingCount} more package${remainingCount > 1 ? 's' : ''}</button>`
+          : ''
+      }
     </div>
   `;
 }
