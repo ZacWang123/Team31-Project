@@ -42,6 +42,19 @@ const getPkgKey = (pkg) => {
   return String(pkg.id || pkg.packageName || pkg.title || '').trim();
 };
 
+function getPackageTags(pkg) {
+  const tags = [];
+  const title = pkg.packageName || pkg.title || pkg.name || '';
+  const haystack = `${title} ${pkg.wowFactor || ''} ${pkg.destination || ''}`;
+  TAG_RULES.forEach(({ id }) => {
+    const rule = TAG_RULES.find((r) => r.id === id);
+    if (rule && rule.test.test(haystack)) {
+      tags.push(id);
+    }
+  });
+  return tags;
+}
+
 function buildDestinations() {
   const byDestination = new Map();
   const safeData = Array.isArray(packagesData) ? packagesData : [];
@@ -61,11 +74,8 @@ function buildDestinations() {
     const entry = byDestination.get(pkg.destination);
     entry.packages.push(pkg);
 
-    const title = pkg.packageName || pkg.title || pkg.name || '';
-    const haystack = `${title} ${pkg.wowFactor || ''}`;
-    TAG_RULES.forEach(({ id, test }) => {
-      if (test.test(haystack)) entry.tags.add(id);
-    });
+    const tags = getPackageTags(pkg);
+    tags.forEach((t) => entry.tags.add(t));
   });
 
   return Array.from(byDestination.values()).map((d) => ({
@@ -95,7 +105,7 @@ function buildPopupHTML(dest, savedPackages = []) {
       const pkgKey = getPkgKey(pkg);
 
       return `
-        <div class="package-card" data-index="${index}" data-pkg-key="${pkgKey}" style="cursor: pointer;">
+        <div class="package-card" data-index="${index}" data-pkg-key="${pkgKey}">
           <div class="thumbnail-wrapper">
             <img src="${imgSrc}" alt="${title}" class="thumbnail-img" />
             ${price ? `<span class="price-tag">From ${price}</span>` : ''}
@@ -115,7 +125,7 @@ function buildPopupHTML(dest, savedPackages = []) {
 
   return `
     <div class="popup-container">
-      <div class="popup-header">
+      <div class="popup-header-wrapper">
         <span class="popup-dest-name">${dest.destination}</span>
         <span class="popup-dest-count">${dest.packages.length} package${dest.packages.length > 1 ? 's' : ''} available</span>
       </div>
@@ -141,7 +151,7 @@ export default function WorldMap() {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [activeFilters, setActiveFilters] = useState([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [activeProfileTab, setActiveProfileTab] = useState('saved'); // 'viewed' or 'saved'
+  const [activeProfileTab, setActiveProfileTab] = useState('saved');
   const [selectedPackage, setSelectedPackage] = useState(null);
 
   const travelContext = useTravelProfile() || {};
@@ -165,44 +175,27 @@ export default function WorldMap() {
 
   const destinations = useMemo(() => buildDestinations(), []);
 
+  const topSavedFilters = useMemo(() => {
+    const counts = {};
+    savedPackages.forEach((pkg) => {
+      const tags = getPackageTags(pkg);
+      tags.forEach((tagId) => {
+        counts[tagId] = (counts[tagId] || 0) + 1;
+      });
+    });
+
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([tagId]) => {
+        const found = FILTER_OPTIONS.find((f) => f.id === tagId);
+        return found ? found.id : null;
+      })
+      .filter(Boolean);
+  }, [savedPackages]);
+
   useEffect(() => {
     if (!mapContainerRef.current) return;
-
-    const styleTag = document.createElement('style');
-    styleTag.innerHTML = `
-      .maplibregl-popup { max-width: 420px !important; z-index: 50; }
-      .maplibregl-popup-content { background: rgba(15, 23, 42, 0.95) !important; backdrop-filter: blur(12px) !important; color: #f8fafc !important; padding: 20px !important; border-radius: 20px !important; border: 1px solid rgba(51, 65, 85, 0.8) !important; box-shadow: 0 20px 40px rgba(0,0,0,0.7) !important; }
-      .maplibregl-popup-close-button { font-size: 24px !important; color: #94a3b8 !important; padding: 8px 12px !important; background: transparent !important; border: none !important; cursor: pointer !important; line-height: 1 !important; transition: color 0.2s; z-index: 10; }
-      .maplibregl-popup-close-button:hover { color: #ffffff !important; background: rgba(255,255,255,0.1) !important; border-radius: 50% !important; }
-      .maplibregl-popup-tip { border-top-color: #0f172a !important; }
-      .popup-container { display: flex; flex-direction: column; gap: 14px; width: 340px; }
-      .popup-header { display: flex; flex-direction: column; gap: 2px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
-      .popup-dest-name { font-size: 18px; font-weight: 700; color: #f8fafc; }
-      .popup-dest-count { font-size: 12px; color: #94a3b8; }
-      .package-list { display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto; padding-right: 4px; }
-      .package-card { background: rgba(30, 41, 59, 0.7); border: 1px solid #334155; border-radius: 12px; overflow: hidden; transition: transform 0.2s, border-color 0.2s; display: flex; flex-direction: column; flex-shrink: 0; }
-      .package-card:hover { border-color: #38bdf8; transform: translateY(-2px); }
-      .thumbnail-wrapper { position: relative; width: 100%; height: 130px; overflow: hidden; flex-shrink: 0; }
-      .thumbnail-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
-      .package-card:hover .thumbnail-img { transform: scale(1.04); }
-      .price-tag { position: absolute; bottom: 8px; left: 8px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(4px); color: #38bdf8; padding: 4px 8px; font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.3); }
-      
-      .save-package-btn { position: absolute; top: 8px; right: 8px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(4px); border: 1px solid #475569; color: #cbd5e1; padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; z-index: 2; }
-      .save-package-btn .btn-text-hover { display: none; }
-      .save-package-btn:hover { background: #0f172a; color: #ffffff; border-color: #38bdf8; }
-      
-      .save-package-btn.saved { background: rgba(244, 63, 94, 0.2); border-color: #f43f5e; color: #f43f5e; }
-      .save-package-btn.saved:hover { background: rgba(239, 68, 68, 0.35); border-color: #ef4444; color: #fca5a5; }
-      .save-package-btn.saved:hover .btn-text-default { display: none; }
-      .save-package-btn.saved:hover .btn-text-hover { display: inline; }
-
-      .card-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
-      .package-title { font-size: 13px; font-weight: 600; color: #f1f5f9; line-height: 1.35; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-      .wow-factor { font-size: 11px; color: #94a3b8; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
-      .browse-more-btn { background: #1e293b; border: 1px solid #475569; color: #38bdf8; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer; text-align: center; transition: background 0.2s; font-size: 13px; }
-      .browse-more-btn:hover { background: #334155; color: #ffffff; }
-    `;
-    document.head.appendChild(styleTag);
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
@@ -260,17 +253,6 @@ export default function WorldMap() {
       destinations.forEach((dest) => {
         const el = document.createElement('div');
         el.className = 'country-pin';
-        el.style.cssText = `
-          background-color: #ff4757;
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          border: 3px solid white;
-          box-shadow: 0 0 12px rgba(255, 71, 87, 0.6);
-          cursor: pointer;
-          transform: translate(-50%, -50%);
-          z-index: 10;
-        `;
 
         el.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -353,7 +335,6 @@ export default function WorldMap() {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
-      styleTag.remove();
     };
   }, [destinations]);
 
@@ -410,78 +391,93 @@ export default function WorldMap() {
 
   const displayedPackages = activeProfileTab === 'saved' ? savedPackages : viewedPackages;
   const isPackageSaved = selectedPackage ? savedPackages.some((s) => arePackagesSame(s, selectedPackage)) : false;
-
   const selectedPkgTitle = selectedPackage ? (selectedPackage.packageName || selectedPackage.title || selectedPackage.name || 'Package') : '';
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
-      <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+    <div className="world-map-layout">
+      <div ref={mapContainerRef} className="map-full-container" />
 
-      <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 1000 }}>
+      <div className="view-profile-btn-container">
         <button
           onClick={() => {
-            setSelectedPackage(null); // Close individual package page if open
+            setSelectedPackage(null);
             setIsProfileOpen(true);
           }}
-          style={{ background: '#1e293b', border: '1px solid #475569', color: '#f8fafc', padding: '10px 16px', borderRadius: '12px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', backdropFilter: 'blur(8px)' }}
+          className="view-profile-btn"
         >
           <span>View Travel Profile</span>
-          <span style={{ fontSize: '16px' }}>👤</span>
+          <span className="profile-icon">👤</span>
         </button>
       </div>
 
       {isProfileOpen && (
-        <div style={profileModalBackdropStyle} onClick={() => setIsProfileOpen(false)}>
-          <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
-            <div style={modalHeaderStyle}>
+        <div className="modal-backdrop-profile" onClick={() => setIsProfileOpen(false)}>
+          <div className="modal-content-box" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header-container">
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#f8fafc' }}>Your Travel Profile</h2>
-                  <button onClick={resetProfile} style={resetProfileBtnStyle}>Reset Profile</button>
+                <div className="modal-title-row">
+                  <h2 className="modal-title">Your Travel Profile</h2>
+                  <button onClick={resetProfile} className="reset-profile-btn">Reset Profile</button>
                 </div>
-                <div style={modalSubHeaderDivider}></div>
-                <div style={modalTabsContainerStyle}>
+                <div className="modal-divider"></div>
+                <div className="modal-tabs-container">
                   <button
                     onClick={() => setActiveProfileTab('viewed')}
-                    style={{
-                      ...modalTabBtnStyle,
-                      color: activeProfileTab === 'viewed' ? '#38bdf8' : '#94a3b8',
-                      borderBottomColor: activeProfileTab === 'viewed' ? '#38bdf8' : 'transparent',
-                    }}
+                    className={`modal-tab-btn ${activeProfileTab === 'viewed' ? 'active' : ''}`}
                   >
-                    Viewed package ({viewedPackages.length})
+                    Viewed packages ({viewedPackages.length})
                   </button>
-                  <span style={{ color: '#475569' }}>|</span>
+                  <span className="tab-separator">|</span>
                   <button
                     onClick={() => setActiveProfileTab('saved')}
-                    style={{
-                      ...modalTabBtnStyle,
-                      color: activeProfileTab === 'saved' ? '#38bdf8' : '#94a3b8',
-                      borderBottomColor: activeProfileTab === 'saved' ? '#38bdf8' : 'transparent',
-                    }}
+                    className={`modal-tab-btn ${activeProfileTab === 'saved' ? 'active' : ''}`}
                   >
-                    Saved package ({savedPackages.length})
+                    Saved packages ({savedPackages.length})
                   </button>
                 </div>
               </div>
-              <button style={modalCloseBtnStyle} onClick={() => setIsProfileOpen(false)}>✕</button>
+              <button className="modal-close-btn" onClick={() => setIsProfileOpen(false)}>✕</button>
             </div>
 
-            <div style={modalBodyStyle}>
+            <div className="modal-body-container">
+              {activeProfileTab === 'saved' && topSavedFilters.length > 0 && (
+                <div className="top-filters-banner">
+                  <span className="top-filters-label">Your Top Filters:</span>
+                  <div className="top-filters-chips">
+                    {topSavedFilters.map((filterId) => {
+                      const filterObj = FILTER_OPTIONS.find((f) => f.id === filterId);
+                      const isFilterActive = activeFilters.includes(filterId);
+                      return (
+                        <button
+                          key={filterId}
+                          onClick={() => {
+                            setIsProfileOpen(false);
+                            toggleFilter(filterId);
+                          }}
+                          className={`top-filter-chip ${isFilterActive ? 'active' : ''}`}
+                        >
+                          {filterObj ? filterObj.label : filterId}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {displayedPackages.length === 0 ? (
-                <div style={emptyStateStyle}>
-                  <p style={{ fontSize: '32px' }}>{activeProfileTab === 'saved' ? '✈️' : '🔍'}</p>
-                  <p style={{ fontWeight: '600', color: '#f8fafc' }}>
+                <div className="empty-state-container">
+                  <p className="empty-state-emoji">{activeProfileTab === 'saved' ? '✈️' : '🔍'}</p>
+                  <p className="empty-state-title">
                     {activeProfileTab === 'saved' ? 'No saved packages yet!' : 'No viewed packages yet!'}
                   </p>
-                  <p style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'center' }}>
+                  <p className="empty-state-desc">
                     {activeProfileTab === 'saved'
                       ? 'Explore destinations on the map and click 🤍 Save on any package to add it to your travel profile.'
                       : 'Click on destination pins or browse packages on the map to see your viewed history here.'}
                   </p>
                 </div>
               ) : (
-                <div style={savedPackagesGridStyle}>
+                <div className="saved-packages-grid">
                   {displayedPackages.map((pkg, idx) => {
                     const imgSrc =
                       pkg.imageUrl ||
@@ -498,20 +494,16 @@ export default function WorldMap() {
                           trackPackageClick(pkg);
                           setSelectedPackage(pkg);
                         }}
-                        style={savedCardClickableStyle}
+                        className="saved-card-item"
                       >
-                        <div style={{ position: 'relative', height: '130px' }}>
-                          <img src={imgSrc} alt={pkgTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          {price && <span style={savedCardPriceStyle}>From {price}</span>}
+                        <div className="saved-card-img-wrapper">
+                          <img src={imgSrc} alt={pkgTitle} className="saved-card-img" />
+                          {price && <span className="saved-card-price-tag">From {price}</span>}
                         </div>
-                        <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <span style={{ fontSize: '12px', fontWeight: '600', color: '#38bdf8', textTransform: 'uppercase' }}>
-                            {pkg.destination}
-                          </span>
-                          <h4 style={{ fontSize: '14px', fontWeight: '600', color: '#f8fafc', margin: 0, lineHeight: '1.3' }}>
-                            {pkgTitle}
-                          </h4>
-                          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                        <div className="saved-card-body">
+                          <span className="saved-card-dest">{pkg.destination}</span>
+                          <h4 className="saved-card-title">{pkgTitle}</h4>
+                          <div className="saved-card-actions">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -535,48 +527,44 @@ export default function WorldMap() {
       )}
 
       {selectedPackage && (
-        <div style={packageModalBackdropStyle} onClick={() => setSelectedPackage(null)}>
-          <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
-            <div style={modalHeaderStyle}>
+        <div className="modal-backdrop-package" onClick={() => setSelectedPackage(null)}>
+          <div className="modal-content-box" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header-container">
               <div>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: '#38bdf8', textTransform: 'uppercase' }}>
-                  {selectedPackage.destination}
-                </span>
-                <h2 style={{ margin: '4px 0 0 0', fontSize: '20px', fontWeight: '700', color: '#f8fafc' }}>
-                  {selectedPkgTitle}
-                </h2>
+                <span className="modal-package-dest">{selectedPackage.destination}</span>
+                <h2 className="modal-package-title">{selectedPkgTitle}</h2>
               </div>
-              <button style={modalCloseBtnStyle} onClick={() => setSelectedPackage(null)}>✕</button>
+              <button className="modal-close-btn" onClick={() => setSelectedPackage(null)}>✕</button>
             </div>
 
-            <div style={modalBodyStyle}>
-              <div style={{ position: 'relative', width: '100%', height: '220px', borderRadius: '12px', overflow: 'hidden', marginBottom: '16px' }}>
+            <div className="modal-body-container">
+              <div className="modal-hero-wrapper">
                 <img
                   src={selectedPackage.imageUrl || selectedPackage.image || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80'}
                   alt={selectedPkgTitle}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  className="modal-hero-img"
                 />
                 {selectedPackage.fromPrice && (
-                  <span style={{ position: 'absolute', bottom: '12px', left: '12px', backgroundColor: 'rgba(15, 23, 42, 0.9)', color: '#38bdf8', padding: '6px 12px', fontSize: '14px', fontWeight: '700', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.4)' }}>
+                  <span className="modal-hero-price">
                     From ${selectedPackage.fromPrice.toLocaleString('en-AU')}
                   </span>
                 )}
               </div>
 
               {selectedPackage.wowFactor && (
-                <div style={{ backgroundColor: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', color: '#38bdf8', fontSize: '14px', fontWeight: '600' }}>
+                <div className="modal-wow-banner">
                   ✨ {selectedPackage.wowFactor}
                 </div>
               )}
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#cbd5e1', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
-                <h4 style={{ color: '#f8fafc', fontSize: '15px', margin: '0 0 4px 0' }}>Overview & Details</h4>
-                <p style={{ margin: 0 }}>
+              <div className="modal-overview-section">
+                <h4 className="modal-overview-heading">Overview & Details</h4>
+                <p className="modal-overview-text">
                   {selectedPackage.description || selectedPackage.details || `Experience the ultimate journey to ${selectedPackage.destination}. This carefully curated package offers unforgettable sights, premium accommodations, and seamless travel arrangements tailored for explorers.`}
                 </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div className="modal-footer-actions">
                 <button
                   onClick={() => toggleSavePackage(selectedPackage)}
                   className={`modal-save-btn ${isPackageSaved ? 'saved' : ''}`}
@@ -590,21 +578,16 @@ export default function WorldMap() {
         </div>
       )}
 
-      <div style={filterPanelStyle}>
-        <div style={filterHeaderStyle}>Filter Destinations</div>
-        <div style={chipContainerStyle}>
+      <div className="filter-panel">
+        <div className="filter-header">Filter Destinations</div>
+        <div className="chip-container">
           {FILTER_OPTIONS.map((filter) => {
             const isActive = activeFilters.includes(filter.id);
             return (
               <button
                 key={filter.id}
                 onClick={() => toggleFilter(filter.id)}
-                style={{
-                  ...chipStyle,
-                  backgroundColor: isActive ? '#0284c7' : '#1e293b',
-                  borderColor: isActive ? '#38bdf8' : '#475569',
-                  color: isActive ? '#ffffff' : '#cbd5e1',
-                }}
+                className={`filter-chip ${isActive ? 'active' : ''}`}
               >
                 {filter.label}
               </button>
@@ -613,11 +596,11 @@ export default function WorldMap() {
         </div>
       </div>
 
-      <div style={desktopControlsStyle}>
-        <button style={desktopBtnStyle} onClick={() => mapInstanceRef.current?.zoomIn()} title="Zoom In">+</button>
-        <button style={desktopBtnStyle} onClick={() => mapInstanceRef.current?.zoomOut()} title="Zoom Out">−</button>
+      <div className="desktop-controls">
+        <button className="desktop-btn" onClick={() => mapInstanceRef.current?.zoomIn()} title="Zoom In">+</button>
+        <button className="desktop-btn" onClick={() => mapInstanceRef.current?.zoomOut()} title="Zoom Out">−</button>
         <button
-          style={resetBtnStyle}
+          className="reset-btn"
           onClick={() => {
             setActiveFilters([]);
             mapInstanceRef.current?.flyTo({ center: [0, 20], zoom: 2, duration: 1000 });
@@ -629,49 +612,4 @@ export default function WorldMap() {
       </div>
     </div>
   );
-}
-
-const profileModalBackdropStyle = { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 };
-const packageModalBackdropStyle = { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5000 };
-const modalContentStyle = { backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '90%', maxWidth: '750px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', overflow: 'hidden' };
-const modalHeaderStyle = { padding: '24px 28px 16px 28px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', color: '#f8fafc' };
-const resetProfileBtnStyle = { backgroundColor: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444', color: '#fca5a5', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', transition: 'background 0.2s' };
-const modalSubHeaderDivider = { width: '100%', height: '1px', backgroundColor: '#334155', margin: '8px 0 12px 0' };
-const modalTabsContainerStyle = { display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', fontWeight: '600' };
-const modalTabBtnStyle = { background: 'transparent', border: 'none', borderBottom: '2px solid transparent', padding: '4px 2px', cursor: 'pointer', transition: 'color 0.2s, border-color 0.2s', fontSize: '14px', fontWeight: '600' };
-const modalCloseBtnStyle = { background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '22px', cursor: 'pointer', padding: '4px 8px', borderRadius: '6px' };
-const modalBodyStyle = { padding: '24px 28px', overflowY: 'auto', flex: 1 };
-const emptyStateStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', gap: '12px' };
-const savedPackagesGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' };
-const savedCardClickableStyle = { backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'transform 0.2s, border-color 0.2s' };
-const savedCardPriceStyle = { position: 'absolute', bottom: '8px', left: '8px', backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#38bdf8', padding: '2px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px' };
-const filterPanelStyle = { position: 'absolute', bottom: '24px', left: '24px', backgroundColor: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(8px)', border: '1px solid #334155', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', zIndex: 10, minWidth: '200px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' };
-const filterHeaderStyle = { color: '#f8fafc', fontSize: '13px', fontWeight: '600', letterSpacing: '0.5px', textTransform: 'uppercase' };
-const chipContainerStyle = { display: 'flex', flexWrap: 'wrap', gap: '8px' };
-const chipStyle = { border: '1px solid', borderRadius: '20px', padding: '8px 14px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', gap: '6px' };
-const desktopControlsStyle = { position: 'absolute', bottom: '24px', right: '24px', display: 'flex', flexDirection: 'column', gap: '8px', zIndex: 10 };
-const desktopBtnStyle = { width: '36px', height: '36px', borderRadius: '6px', backgroundColor: '#1e293b', color: '#ffffff', border: '1px solid #475569', fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' };
-const resetBtnStyle = { height: '32px', padding: '0 12px', borderRadius: '6px', backgroundColor: '#1e293b', color: '#38bdf8', border: '1px solid #475569', fontSize: '13px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' };
-
-// Additional injected CSS styles for profile and detail modal save buttons
-const additionalStyles = `
-  .profile-save-btn { flex: 1; background-color: #334155; border: 1px solid #475569; color: #f8fafc; padding: 6px; border-radius: 6px; fontSize: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-  .profile-save-btn .btn-text-hover { display: none; }
-  .profile-save-btn.saved { background-color: rgba(244, 63, 94, 0.15); border-color: #f43f5e; color: #fca5a5; }
-  .profile-save-btn.saved:hover { background-color: rgba(239, 68, 68, 0.35); border-color: #ef4444; color: #ffffff; }
-  .profile-save-btn.saved:hover .btn-text-default { display: none; }
-  .profile-save-btn.saved:hover .btn-text-hover { display: inline; }
-
-  .modal-save-btn { flex: 1; background-color: #0284c7; border: 1px solid #38bdf8; color: #ffffff; padding: 12px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-  .modal-save-btn .btn-text-hover { display: none; }
-  .modal-save-btn.saved { background-color: rgba(244, 63, 94, 0.2); border-color: #f43f5e; color: #f43f5e; }
-  .modal-save-btn.saved:hover { background-color: rgba(239, 68, 68, 0.35); border-color: #ef4444; color: #fca5a5; }
-  .modal-save-btn.saved:hover .btn-text-default { display: none; }
-  .modal-save-btn.saved:hover .btn-text-hover { display: inline; }
-`;
-
-if (typeof document !== 'undefined') {
-  const styleEl = document.createElement('style');
-  styleEl.innerHTML = additionalStyles;
-  document.head.appendChild(styleEl);
 }
