@@ -57,7 +57,7 @@ function buildDestinations() {
   }));
 }
 
-function buildPopupHTML(dest) {
+function buildPopupHTML(dest, savedPackages = []) {
   const maxVisible = 3;
   const visiblePackages = dest.packages.slice(0, maxVisible);
   const remainingCount = dest.packages.length - maxVisible;
@@ -73,11 +73,16 @@ function buildPopupHTML(dest) {
         ? `$${pkg.fromPrice.toLocaleString('en-AU')}`
         : null;
 
+      const isSaved = savedPackages.some((p) => p.packageName === pkg.packageName);
+
       return `
         <div class="package-card">
           <div class="thumbnail-wrapper">
             <img src="${imgSrc}" alt="${pkg.packageName || 'Package'}" class="thumbnail-img" />
             ${price ? `<span class="price-tag">From ${price}</span>` : ''}
+            <button class="save-package-btn ${isSaved ? 'saved' : ''}" data-pkg-name="${pkg.packageName}">
+              ${isSaved ? '❤️ Saved' : '🤍 Save'}
+            </button>
           </div>
           <div class="card-body">
             <div class="package-title">${pkg.packageName || 'Package'}</div>
@@ -112,7 +117,13 @@ export default function WorldMap() {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [activeFilters, setActiveFilters] = useState([]);
 
-  const { trackFilterClick, trackPackageClick } = useTravelProfile();
+  const { trackFilterClick, trackPackageClick, savedPackages, toggleSavePackage } = useTravelProfile();
+
+  // Keep refs updated for event listeners to prevent stale closures
+  const savedPackagesRef = useRef(savedPackages);
+  useEffect(() => {
+    savedPackagesRef.current = savedPackages;
+  }, [savedPackages]);
 
   const destinations = useMemo(() => buildDestinations(), []);
 
@@ -229,8 +240,31 @@ export default function WorldMap() {
 
           const popup = new maplibregl.Popup({ offset: 20, closeButton: true, maxWidth: 'none' })
             .setLngLat([dest.lon, dest.lat])
-            .setHTML(buildPopupHTML(dest))
+            .setHTML(buildPopupHTML(dest, savedPackagesRef.current))
             .addTo(map);
+
+          const popupElem = popup.getElement();
+          if (popupElem) {
+            popupElem.addEventListener('click', (ev) => {
+              const saveBtn = ev.target.closest('.save-package-btn');
+              if (saveBtn) {
+                const pkgName = saveBtn.getAttribute('data-pkg-name');
+                const targetPkg = dest.packages.find((p) => p.packageName === pkgName);
+                if (targetPkg) {
+                  toggleSavePackage(targetPkg);
+
+                  const isCurrentlySaved = saveBtn.classList.contains('saved');
+                  if (isCurrentlySaved) {
+                    saveBtn.classList.remove('saved');
+                    saveBtn.innerHTML = '🤍 Save';
+                  } else {
+                    saveBtn.classList.add('saved');
+                    saveBtn.innerHTML = '❤️ Saved';
+                  }
+                }
+              }
+            });
+          }
 
           popup.on('close', () => {
             if (popupSessionRef.current !== session) return;
@@ -310,12 +344,13 @@ export default function WorldMap() {
     return () => {
       markersRef.current.forEach(({ marker }) => marker.remove());
       markersRef.current = [];
+      if (popupRef.current) popupRef.current.remove();
       map.remove();
       styleTag.remove();
     };
-  }, []); // Empty array ensures map is initialized only once
+  }, []);
 
-  // 2. Handle filter changes separately without re-mounting the map
+  // 2. Handle filter changes separately
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !mapLoaded || !map.isStyleLoaded()) return;

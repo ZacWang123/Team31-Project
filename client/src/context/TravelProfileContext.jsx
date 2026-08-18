@@ -9,6 +9,7 @@ export const TravelProfileProvider = ({ children }) => {
       clickedFilters: {},
       viewedDestinations: {},
       likedPackages: {},
+      savedPackages: [], // Added to hold explicitly saved/wishlisted packages
       searchQueries: []
     };
   });
@@ -43,19 +44,33 @@ export const TravelProfileProvider = ({ children }) => {
     }));
   };
 
+  // Toggle saving/wishlisting a package explicitly
+  const toggleSavePackage = (pkg) => {
+    setProfile(prev => {
+      const exists = prev.savedPackages.some(p => p.packageName === pkg.packageName);
+      return {
+        ...prev,
+        savedPackages: exists
+          ? prev.savedPackages.filter(p => p.packageName !== pkg.packageName)
+          : [...prev.savedPackages, pkg]
+      };
+    });
+  };
+
   // Clear or reset profile if needed
   const resetProfile = () => {
     setProfile({
       clickedFilters: {},
       viewedDestinations: {},
       likedPackages: {},
+      savedPackages: [],
       searchQueries: []
     });
     localStorage.removeItem('user_travel_profile');
   };
 
   return (
-    <TravelProfileContext.Provider value={{ profile, trackFilterClick, trackPackageClick, resetProfile }}>
+    <TravelProfileContext.Provider value={{ profile, trackFilterClick, trackPackageClick, toggleSavePackage, resetProfile }}>
       {children}
     </TravelProfileContext.Provider>
   );
