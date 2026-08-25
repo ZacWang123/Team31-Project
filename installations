@@ -23,3 +23,6 @@ npm run dev
 npm install maplibre-gl
 
 npm install express mongoose cors dotenv
+
+cd client
+npm run dev

@@ -148,11 +148,59 @@ export default function WorldMap() {
   const popupSessionRef = useRef(0);
   const activeDestRef = useRef(null);
 
+  // Refs for flight path interpolation and airplane DOM markers
+  const flightDataRef = useRef([]);
+  const flightMarkersRef = useRef(new Map());
+  const animationFrameRef = useRef(null);
+
   const [mapLoaded, setMapLoaded] = useState(false);
   const [activeFilters, setActiveFilters] = useState([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [activeProfileTab, setActiveProfileTab] = useState('saved');
   const [selectedPackage, setSelectedPackage] = useState(null);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(true);
+
+  // 20-second inactivity timer to make the welcome modal reappear
+  useEffect(() => {
+    let inactivityTimer;
+
+    const resetInactivityTimer = () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      if (!showWelcomeModal) {
+        inactivityTimer = setTimeout(() => {
+          setShowWelcomeModal(true);
+        }, 20000);
+      }
+    };
+
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    activityEvents.forEach((event) => {
+      window.addEventListener(event, resetInactivityTimer);
+    });
+
+    resetInactivityTimer();
+
+    return () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      activityEvents.forEach((event) => {
+        window.removeEventListener(event, resetInactivityTimer);
+      });
+    };
+  }, [showWelcomeModal]);
+
+  // Global click listener to dismiss the modal when clicking anywhere
+  useEffect(() => {
+    if (!showWelcomeModal) return;
+
+    const handleGlobalClick = () => {
+      setShowWelcomeModal(false);
+    };
+
+    window.addEventListener('click', handleGlobalClick);
+    return () => {
+      window.removeEventListener('click', handleGlobalClick);
+    };
+  }, [showWelcomeModal]);
 
   const travelContext = useTravelProfile() || {};
   const {
@@ -338,6 +386,118 @@ export default function WorldMap() {
     };
   }, [destinations]);
 
+  // Polling loop & smooth frame-by-frame airplane marker extrapolation 
+  // Runs ONLY when map is loaded AND the welcome modal IS visible (showWelcomeModal === true)
+  useEffect(() => {
+    if (!mapLoaded || !mapInstanceRef.current || !showWelcomeModal) {
+      // Clean up markers immediately when modal closes / user is active
+      flightMarkersRef.current.forEach(markerObj => markerObj.marker.remove());
+      flightMarkersRef.current.clear();
+      return;
+    }
+
+    const fetchFlights = async () => {
+      const map = mapInstanceRef.current;
+      if (!map) return;
+
+      try {
+        const response = await fetch('/api/opensky');
+        const data = await response.json();
+        const states = data.states || [];
+        const currentTime = Date.now() / 1000;
+
+        flightDataRef.current = states
+          .filter(flight => flight[5] !== null && flight[6] !== null)
+          .slice(0, 200) // Increased to 200 flights on screen
+          .map(flight => ({
+            id: flight[0],
+            callsign: (flight[1] || 'Unknown').trim(),
+            lon: flight[5],
+            lat: flight[6],
+            velocity: flight[9] || 0, // speed in m/s
+            heading: flight[10] || 0, // direction in degrees
+            lastUpdated: currentTime,
+            altitude: flight[7] ? Math.round(flight[7] * 3.28084) : 0,
+          }));
+      } catch (err) {
+        console.error('Error fetching OpenSky flights:', err);
+      }
+    };
+
+    fetchFlights();
+    const pollInterval = setInterval(fetchFlights, 15000);
+
+    const animateFlights = () => {
+      const map = mapInstanceRef.current;
+      if (map && flightDataRef.current.length > 0) {
+        const now = Date.now() / 1000;
+        const activeIds = new Set();
+
+        flightDataRef.current.forEach(flight => {
+          activeIds.add(flight.id);
+          const elapsed = now - flight.lastUpdated;
+          let currentLon = flight.lon;
+          let currentLat = flight.lat;
+
+          if (flight.velocity > 0 && elapsed > 0 && elapsed < 30) {
+            const distanceMeters = flight.velocity * elapsed;
+            const headingRad = (flight.heading * Math.PI) / 180;
+            const deltaLat = (distanceMeters * Math.cos(headingRad)) / 111000;
+            const deltaLon = (distanceMeters * Math.sin(headingRad)) / (111000 * Math.cos((flight.lat * Math.PI) / 180));
+            currentLon += deltaLon;
+            currentLat += deltaLat;
+          }
+
+          let markerObj = flightMarkersRef.current.get(flight.id);
+
+          if (!markerObj) {
+            const el = document.createElement('div');
+            el.className = 'airplane-marker';
+            el.innerHTML = `
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="#3b82f6" stroke="#ffffff" stroke-width="1.5" style="transform: rotate(${flight.heading || 0}deg); filter: drop-shadow(0px 1px 3px rgba(0,0,0,0.35));">
+                <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+              </svg>
+            `;
+            el.title = `${flight.callsign} (${flight.altitude} ft)`;
+
+            const marker = new maplibregl.Marker({ element: el })
+              .setLngLat([currentLon, currentLat])
+              .addTo(map);
+
+            markerObj = { marker, element: el };
+            flightMarkersRef.current.set(flight.id, markerObj);
+          } else {
+            markerObj.marker.setLngLat([currentLon, currentLat]);
+            const svg = markerObj.element.querySelector('svg');
+            if (svg) {
+              svg.style.transform = `rotate(${flight.heading || 0}deg)`;
+            }
+          }
+        });
+
+        flightMarkersRef.current.forEach((markerObj, id) => {
+          if (!activeIds.has(id)) {
+            markerObj.marker.remove();
+            flightMarkersRef.current.delete(id);
+          }
+        });
+      }
+
+      animationFrameRef.current = requestAnimationFrame(animateFlights);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animateFlights);
+
+    return () => {
+      clearInterval(pollInterval);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      flightMarkersRef.current.forEach(markerObj => markerObj.marker.remove());
+      flightMarkersRef.current.clear();
+    };
+  }, [mapLoaded, showWelcomeModal]);
+
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !mapLoaded || !map.isStyleLoaded()) return;
@@ -395,7 +555,93 @@ export default function WorldMap() {
 
   return (
     <div className="world-map-layout">
+      <style>{`
+        @keyframes textFlash {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.4; transform: scale(1.03); }
+        }
+        .text-pulsing {
+          animation: textFlash 1.5s infinite ease-in-out;
+        }
+        .airplane-marker {
+          cursor: pointer;
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: transform 0.2s ease;
+        }
+        .airplane-marker:hover {
+          transform: scale(1.25);
+        }
+      `}</style>
+
       <div ref={mapContainerRef} className="map-full-container" />
+
+      {showWelcomeModal && (
+        <div
+          className="modal-content-box"
+          style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            maxWidth: '580px',
+            width: '90%',
+            textAlign: 'center',
+            zIndex: 30000,
+            background: '#D91823',
+            color: '#ffffff',
+            borderRadius: '16px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
+            border: '2px solid rgba(255, 255, 255, 0.2)',
+            overflow: 'hidden',
+            padding: '40px 32px',
+            cursor: 'pointer',
+          }}
+        >
+          <h2
+            style={{
+              fontSize: '1.85rem',
+              fontWeight: '800',
+              color: '#ffffff',
+              marginBottom: '16px',
+              lineHeight: '1.3',
+              letterSpacing: '-0.01em',
+            }}
+          >
+            Welcome to Flight Centre's Interactive Travel Map
+          </h2>
+
+          <p
+            style={{
+              color: '#ffffff',
+              fontSize: '1.1rem',
+              fontWeight: '600',
+              lineHeight: '1.6',
+              marginBottom: '24px',
+              opacity: '0.95',
+            }}
+          >
+            Explore world destinations, filter holiday packages by your travel style, save your favourite trips, and build your personalised travel profile in real-time.
+          </p>
+
+          <p
+            className="text-pulsing"
+            style={{
+              color: '#ffffff',
+              fontSize: '0.95rem',
+              fontWeight: '700',
+              letterSpacing: '0.02em',
+              textTransform: 'uppercase',
+              display: 'inline-block',
+            }}
+          >
+            Click anywhere to begin exploring
+          </p>
+        </div>
+      )}
 
       <div className="view-profile-btn-container">
         <button
