@@ -342,12 +342,16 @@ export default function WorldMap() {
     const map = mapInstanceRef.current;
     if (!map || !mapLoaded || !map.isStyleLoaded()) return;
 
+    // IMPORTANT: use marker.setOpacity(), not element.style.opacity directly -
+    // MapLibre's Marker re-applies its own internal opacity on every map
+    // render (including mid-flyTo/fitBounds), so a raw style write gets
+    // silently clobbered back to 1 the moment the camera next moves.
     markersRef.current.forEach(({ marker, element, destination }) => {
       const matches =
         activeFilters.length === 0 ||
         activeFilters.some((filter) => destination.tags.includes(filter));
-      if (marker && marker.getElement()) {
-        marker.getElement().style.opacity = matches ? '1' : '0.25';
+      if (marker && typeof marker.setOpacity === 'function') {
+        marker.setOpacity(matches ? '1' : '0.25');
       }
       if (element) {
         element.style.pointerEvents = matches ? 'auto' : 'none';
