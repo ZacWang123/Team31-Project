@@ -2,8 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import packagesData from '../data/packages.json';
+import cityPackagesData from '../data/cityPackages.json';
 import { useTravelProfile } from '../context/TravelProfileContext';
 import './WorldMap.css';
+
+/* FCIPT3-10: how many packages a city pin shows before "browse more" appears */
+const CITY_PREVIEW_LIMIT = 3;
+
+/* Above this zoom we consider the user to be looking at a single country */
+const COUNTRY_ZOOM_THRESHOLD = 3.5;
 
 const MAPTILER_KEY = 'b2kWQSPaeDhJ5B2PDkVO';
 const MAP_STYLE = `https://api.maptiler.com/maps/basic-v2/style.json?key=${MAPTILER_KEY}`;
@@ -84,6 +91,162 @@ function buildDestinations() {
   }));
 }
 
+/*
+ * FCIPT3-10
+ * Groups the flat cityPackages.json array into { ISO3: [city, city, ...] }.
+ * Cities are ordered by package count, so "popular as per the associated
+ * travel packages" is what decides which pins read as most prominent.
+ */
+function buildCityIndex() {
+  const byCountry = new Map();
+  const safeData = Array.isArray(cityPackagesData) ? cityPackagesData : [];
+
+  safeData.forEach((pkg) => {
+    if (!pkg || !pkg.iso3 || !pkg.city) return;
+
+    const iso3 = String(pkg.iso3).toUpperCase();
+    if (!byCountry.has(iso3)) byCountry.set(iso3, new Map());
+    const cities = byCountry.get(iso3);
+
+    if (!cities.has(pkg.city)) {
+      cities.set(pkg.city, {
+        name: pkg.city,
+        lat: pkg.lat || 0,
+        lon: pkg.lon || 0,
+        iso2: pkg.iso2 || '',
+        iso3,
+        tags: new Set(),
+        packages: [],
+      });
+    }
+
+    const entry = cities.get(pkg.city);
+    entry.packages.push(pkg);
+    getPackageTags(pkg).forEach((t) => entry.tags.add(t));
+  });
+
+  const index = {};
+  byCountry.forEach((cities, iso3) => {
+    index[iso3] = Array.from(cities.values())
+      .map((c) => ({ ...c, tags: Array.from(c.tags) }))
+      .sort((a, b) => b.packages.length - a.packages.length);
+  });
+  return index;
+}
+
+/*
+ * Natural Earth sets ISO_A3 to "-99" for some countries (France, Norway).
+ * ISO_A3_EH and ADM0_A3 carry the real code, so try those first.
+ */
+function resolveIso3(props) {
+  if (!props) return null;
+  const candidates = [
+    props.ISO_A3_EH,
+    props.ADM0_A3,
+    props.ISO_A3,
+    props.iso_a3,
+    props.adm0_a3,
+  ];
+  for (const candidate of candidates) {
+    const value = candidate ? String(candidate).trim().toUpperCase() : '';
+    if (value && value !== '-99' && value.length === 3) return value;
+  }
+  return null;
+}
+
+/* Bounding box around a country's cities, with a little breathing room. */
+function boundsForCities(cities) {
+  if (!cities || cities.length === 0) return null;
+
+  let west = 180;
+  let south = 90;
+  let east = -180;
+  let north = -90;
+
+  cities.forEach(({ lon, lat }) => {
+    if (lon < west) west = lon;
+    if (lon > east) east = lon;
+    if (lat < south) south = lat;
+    if (lat > north) north = lat;
+  });
+
+  const padLon = Math.max((east - west) * 0.25, 1.5);
+  const padLat = Math.max((north - south) * 0.25, 1.5);
+
+  return [
+    [Math.max(west - padLon, -179), Math.max(south - padLat, -85)],
+    [Math.min(east + padLon, 179), Math.min(north + padLat, 85)],
+  ];
+}
+
+/*
+ * FCIPT3-10 city popup.
+ * Shows at most CITY_PREVIEW_LIMIT packages, with a button to reveal the rest.
+ * Reuses the existing .package-card / .browse-more-btn styles so city and
+ * country popups stay visually consistent.
+ */
+function buildCityPopupHTML(city, savedPackages = [], expanded = false) {
+  const total = city.packages.length;
+  const visiblePackages = expanded ? city.packages : city.packages.slice(0, CITY_PREVIEW_LIMIT);
+  const remainingCount = total - visiblePackages.length;
+
+  const packagesHTML = visiblePackages
+    .map((pkg, index) => {
+      const imgSrc =
+        pkg.imageUrl ||
+        pkg.image ||
+        'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
+
+      const price = pkg.fromPrice ? `$${pkg.fromPrice.toLocaleString('en-AU')}` : null;
+      const title = pkg.packageName || pkg.title || pkg.name || 'Package';
+      const isSaved = savedPackages.some((saved) => arePackagesSame(saved, pkg));
+      const pkgKey = getPkgKey(pkg);
+
+      return `
+        <div class="package-card" data-index="${index}" data-pkg-key="${pkgKey}">
+          <div class="thumbnail-wrapper">
+            <img src="${imgSrc}" alt="${title}" class="thumbnail-img" />
+            ${price ? `<span class="price-tag">From ${price}</span>` : ''}
+            <button class="save-package-btn ${isSaved ? 'saved' : ''}" data-index="${index}" data-pkg-key="${pkgKey}">
+              <span class="btn-text-default">${isSaved ? '❤️ Saved' : '🤍 Save'}</span>
+              <span class="btn-text-hover">Remove from saved</span>
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="package-title">${title}</div>
+            ${pkg.wowFactor ? `<div class="wow-factor">${pkg.wowFactor}</div>` : ''}
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+
+  const showingLabel = expanded
+    ? `Showing all ${total} package${total > 1 ? 's' : ''}`
+    : `Showing ${visiblePackages.length} of ${total} package${total > 1 ? 's' : ''}`;
+
+  return `
+    <div class="popup-container">
+      <div class="popup-header-wrapper">
+        <span class="popup-dest-region">City</span>
+        <span class="popup-dest-name">${city.name}</span>
+        <span class="popup-dest-count">${showingLabel}</span>
+      </div>
+      <div class="package-list">${packagesHTML}</div>
+      ${
+        remainingCount > 0
+          ? `<button class="browse-more-btn" data-action="expand">Browse ${remainingCount} more package${remainingCount > 1 ? 's' : ''} in ${city.name}</button>`
+          : ''
+      }
+      ${
+        expanded && total > CITY_PREVIEW_LIMIT
+          ? `<button class="browse-more-btn" data-action="collapse">Show fewer</button>`
+          : ''
+      }
+    </div>
+  `;
+}
+
 function buildPopupHTML(dest, savedPackages = []) {
   const maxVisible = 4;
   const visiblePackages = dest.packages.slice(0, maxVisible);
@@ -148,7 +311,15 @@ export default function WorldMap() {
   const popupSessionRef = useRef(0);
   const activeDestRef = useRef(null);
 
+  /* FCIPT3-10 */
+  const cityMarkersRef = useRef([]);
+  const cityPopupRef = useRef(null);
+  const cityExpandedRef = useRef(false);
+  const activeCityRef = useRef(null);
+  const activeCountryRef = useRef(null);
+
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [activeCountry, setActiveCountry] = useState(null);
   const [activeFilters, setActiveFilters] = useState([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [activeProfileTab, setActiveProfileTab] = useState('saved');
@@ -171,9 +342,25 @@ export default function WorldMap() {
     if (popupRef.current && activeDestRef.current) {
       popupRef.current.setHTML(buildPopupHTML(activeDestRef.current, savedPackages));
     }
+
+    if (cityPopupRef.current && activeCityRef.current) {
+      cityPopupRef.current.setHTML(
+        buildCityPopupHTML(activeCityRef.current, savedPackages, cityExpandedRef.current)
+      );
+    }
   }, [savedPackages]);
 
   const destinations = useMemo(() => buildDestinations(), []);
+  const cityIndex = useMemo(() => buildCityIndex(), []);
+
+  const cityIndexRef = useRef(cityIndex);
+  useEffect(() => {
+    cityIndexRef.current = cityIndex;
+  }, [cityIndex]);
+
+  useEffect(() => {
+    activeCountryRef.current = activeCountry;
+  }, [activeCountry]);
 
   const topSavedFilters = useMemo(() => {
     const counts = {};
@@ -249,6 +436,75 @@ export default function WorldMap() {
           },
         });
       }
+
+      /* ------------------------------------------------------------------
+         FCIPT3-10: tapping a country flies to it; the moveend/zoomend
+         handler below then decides whether we are at "country level" and
+         switches the pins over.
+         ------------------------------------------------------------------ */
+      map.on('click', 'country-click-layer', (e) => {
+        const feature = e.features && e.features[0];
+        if (!feature) return;
+
+        const iso3 = resolveIso3(feature.properties);
+        const cities = iso3 ? cityIndexRef.current[iso3] : null;
+        if (!cities || cities.length === 0) return;
+
+        if (popupRef.current) popupRef.current.remove();
+        if (cityPopupRef.current) cityPopupRef.current.remove();
+
+        const preset = customZoomViews[feature.properties?.NAME || feature.properties?.ADMIN];
+        if (preset) {
+          map.flyTo({ ...preset, essential: true, duration: 1200 });
+          return;
+        }
+
+        const bounds = boundsForCities(cities);
+        if (bounds) {
+          map.fitBounds(bounds, { padding: 90, maxZoom: 7, duration: 1200, essential: true });
+        }
+      });
+
+      map.on('mouseenter', 'country-click-layer', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', 'country-click-layer', () => {
+        map.getCanvas().style.cursor = '';
+      });
+
+      /* Work out which country (if any) fills the view, and remember it. */
+      const syncCountryView = () => {
+        if (!mapInstanceRef.current) return;
+
+        if (map.getZoom() < COUNTRY_ZOOM_THRESHOLD) {
+          setActiveCountry(null);
+          return;
+        }
+
+        let iso3 = null;
+        try {
+          const centrePoint = map.project(map.getCenter());
+          const hits = map.queryRenderedFeatures(centrePoint, {
+            layers: ['country-click-layer'],
+          });
+          if (hits && hits[0]) iso3 = resolveIso3(hits[0].properties);
+        } catch (err) {
+          console.error('Could not identify country under map centre:', err);
+        }
+
+        setActiveCountry((prev) => {
+          if (iso3 && cityIndexRef.current[iso3]) return iso3;
+          /*
+           * Nothing usable under the centre - usually ocean after panning to
+           * a coastal city. Hold the current country rather than tearing the
+           * city pins down mid-interaction.
+           */
+          return prev;
+        });
+      };
+
+      map.on('moveend', syncCountryView);
+      map.on('zoomend', syncCountryView);
 
       destinations.forEach((dest) => {
         const el = document.createElement('div');
@@ -330,6 +586,9 @@ export default function WorldMap() {
     return () => {
       markersRef.current.forEach(({ marker }) => marker.remove());
       markersRef.current = [];
+      cityMarkersRef.current.forEach(({ marker }) => marker.remove());
+      cityMarkersRef.current = [];
+      if (cityPopupRef.current) cityPopupRef.current.remove();
       if (popupRef.current) popupRef.current.remove();
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
@@ -337,6 +596,168 @@ export default function WorldMap() {
       }
     };
   }, [destinations]);
+
+  /* ----------------------------------------------------------------------
+     FCIPT3-10: city pins
+     When a country fills the view, swap the world-level pins out for
+     labelled city pins built from cityPackages.json.
+     ---------------------------------------------------------------------- */
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !mapLoaded) return;
+
+    cityMarkersRef.current.forEach(({ marker }) => marker.remove());
+    cityMarkersRef.current = [];
+
+    if (cityPopupRef.current) {
+      cityPopupRef.current.remove();
+      cityPopupRef.current = null;
+    }
+    activeCityRef.current = null;
+    cityExpandedRef.current = false;
+
+    /* World view: put the country pins back. */
+    if (!activeCountry) {
+      markersRef.current.forEach(({ element }) => {
+        if (element) element.style.display = '';
+      });
+      return;
+    }
+
+    /* Country view: country pins would only clutter, so hide them. */
+    markersRef.current.forEach(({ element }) => {
+      if (element) element.style.display = 'none';
+    });
+
+    const cities = cityIndexRef.current[activeCountry] || [];
+
+    cities.forEach((city) => {
+      const el = document.createElement('div');
+      el.className = 'city-pin';
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('aria-label', `${city.name}, ${city.packages.length} packages`);
+      el.innerHTML = `
+        <span class="city-pin-marker"></span>
+        <span class="city-pin-label">
+          <span class="city-pin-name"></span>
+          <span class="city-pin-count"></span>
+        </span>
+      `;
+      el.querySelector('.city-pin-name').textContent = city.name;
+      el.querySelector('.city-pin-count').textContent = String(city.packages.length);
+
+      const openCityPopup = () => {
+        if (cityPopupRef.current) cityPopupRef.current.remove();
+        if (popupRef.current) popupRef.current.remove();
+
+        cityExpandedRef.current = false;
+        activeCityRef.current = city;
+
+        cityMarkersRef.current.forEach(({ element }) => element.classList.remove('is-active'));
+        el.classList.add('is-active');
+
+        const popup = new maplibregl.Popup({
+          offset: 22,
+          closeButton: true,
+          maxWidth: 'none',
+          className: 'city-popup',
+        })
+          .setLngLat([city.lon, city.lat])
+          .setHTML(buildCityPopupHTML(city, savedPackagesRef.current, false))
+          .addTo(map);
+
+        /*
+         * Give the popup room. Without this a pin near the bottom of the
+         * screen pushes the package list and the browse-more button off
+         * the edge, which on a kiosk there is no way to scroll back to.
+         */
+        map.easeTo({
+          center: [city.lon, city.lat],
+          offset: [0, -110],
+          duration: 500,
+          essential: true,
+        });
+
+        const popupElem = popup.getElement();
+        if (popupElem) {
+          popupElem.addEventListener('click', (ev) => {
+            /* Browse more / show fewer */
+            const browseBtn = ev.target.closest('.browse-more-btn');
+            if (browseBtn) {
+              ev.stopPropagation();
+              cityExpandedRef.current = browseBtn.getAttribute('data-action') === 'expand';
+              popup.setHTML(
+                buildCityPopupHTML(city, savedPackagesRef.current, cityExpandedRef.current)
+              );
+              return;
+            }
+
+            /* Save / unsave */
+            const saveBtn = ev.target.closest('.save-package-btn');
+            if (saveBtn) {
+              ev.stopPropagation();
+              const list = cityExpandedRef.current
+                ? city.packages
+                : city.packages.slice(0, CITY_PREVIEW_LIMIT);
+              const targetPkg = list[parseInt(saveBtn.getAttribute('data-index'), 10)];
+              if (targetPkg) toggleSavePackage(targetPkg);
+              return;
+            }
+
+            /* Open the full package detail modal */
+            const cardEl = ev.target.closest('.package-card');
+            if (cardEl) {
+              const list = cityExpandedRef.current
+                ? city.packages
+                : city.packages.slice(0, CITY_PREVIEW_LIMIT);
+              const targetPkg = list[parseInt(cardEl.getAttribute('data-index'), 10)];
+              if (targetPkg) {
+                trackPackageClick(targetPkg);
+                setSelectedPackage(targetPkg);
+              }
+            }
+          });
+        }
+
+        popup.on('close', () => {
+          activeCityRef.current = null;
+          cityExpandedRef.current = false;
+          el.classList.remove('is-active');
+        });
+
+        cityPopupRef.current = popup;
+      };
+
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openCityPopup();
+      });
+
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openCityPopup();
+        }
+      });
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([city.lon, city.lat])
+        .addTo(map);
+
+      cityMarkersRef.current.push({ marker, element: el, city });
+    });
+  }, [activeCountry, mapLoaded]);
+
+  /* Dim city pins that do not match the active filters. */
+  useEffect(() => {
+    cityMarkersRef.current.forEach(({ element, city }) => {
+      if (!element) return;
+      const matches =
+        activeFilters.length === 0 || activeFilters.some((f) => city.tags.includes(f));
+      element.classList.toggle('is-dimmed', !matches);
+    });
+  }, [activeFilters, activeCountry, mapLoaded]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -364,11 +785,15 @@ export default function WorldMap() {
         .filter((d) => d.iso3 && activeFilters.some((filter) => d.tags.includes(filter)))
         .map((d) => d.iso3);
 
+      /*
+       * ISO_A3 is "-99" for France and Norway in this dataset, and coalesce
+       * treats "-99" as a real value, so ISO_A3_EH / ADM0_A3 have to come first.
+       */
       map.setFilter('country-dim-overlay', [
         '!',
         [
           'in',
-          ['coalesce', ['get', 'ISO_A3'], ['get', 'iso_a3'], ['get', 'ADM0_A3']],
+          ['coalesce', ['get', 'ISO_A3_EH'], ['get', 'ADM0_A3'], ['get', 'ISO_A3'], ['get', 'iso_a3']],
           ['literal', matchingIso3],
         ],
       ]);
@@ -396,6 +821,20 @@ export default function WorldMap() {
   return (
     <div className="world-map-layout">
       <div ref={mapContainerRef} className="map-full-container" />
+
+      {activeCountry && (
+        <button
+          className="back-to-world-btn"
+          onClick={() => {
+            if (cityPopupRef.current) cityPopupRef.current.remove();
+            setActiveCountry(null);
+            mapInstanceRef.current?.flyTo({ center: [0, 20], zoom: 2, duration: 1000 });
+          }}
+        >
+          <span>&larr;</span>
+          <span>Back to world view</span>
+        </button>
+      )}
 
       <div className="view-profile-btn-container">
         <button
