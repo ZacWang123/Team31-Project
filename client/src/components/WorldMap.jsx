@@ -636,7 +636,7 @@ export default function WorldMap() {
                             {price && <span className="saved-card-price-tag">From {price}</span>}
                           </div>
                           <div className="saved-card-body">
-                            <span className="saved-card-dest">{pkg.destination}</span>
+                            <span className="saved-card-dest">{formatLocationPath(pkg)}</span>
                             <h4 className="saved-card-title">{title}</h4>
                           </div>
                         </div>
