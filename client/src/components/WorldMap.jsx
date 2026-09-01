@@ -42,6 +42,19 @@ const getPkgKey = (pkg) => {
   return String(pkg.id || pkg.packageName || pkg.title || '').trim();
 };
 
+// Country/city/place, extracted from Flight Centre's own supplier image
+// paths and package titles in FlightCentre_DB.csv (not guessed) - see
+// client/src/data/packages.json. Falls back to whatever level of detail
+// actually exists rather than repeating a level or inventing one.
+function formatLocationPath(pkg) {
+  if (!pkg) return '';
+  const parts = [];
+  if (pkg.country) parts.push(pkg.country);
+  if (pkg.city && pkg.city !== pkg.country) parts.push(pkg.city);
+  if (pkg.place) parts.push(pkg.place);
+  return parts.length > 0 ? parts.join(' › ') : (pkg.destination || '');
+}
+
 function getPackageTags(pkg) {
   const tags = [];
   const title = pkg.packageName || pkg.title || pkg.name || '';
@@ -64,6 +77,7 @@ function buildDestinations() {
     if (!byDestination.has(pkg.destination)) {
       byDestination.set(pkg.destination, {
         destination: pkg.destination,
+        country: pkg.country || '',
         lat: pkg.lat || 0,
         lon: pkg.lon || 0,
         iso3: pkg.iso3 || '',
@@ -126,6 +140,7 @@ function buildPopupHTML(dest, savedPackages = []) {
   return `
     <div class="popup-container">
       <div class="popup-header-wrapper">
+        ${dest.country && dest.country !== dest.destination ? `<span class="popup-dest-country">${dest.country}</span>` : ''}
         <span class="popup-dest-name">${dest.destination}</span>
         <span class="popup-dest-count">${dest.packages.length} package${dest.packages.length > 1 ? 's' : ''} available</span>
       </div>
@@ -501,7 +516,7 @@ export default function WorldMap() {
                           {price && <span className="saved-card-price-tag">From {price}</span>}
                         </div>
                         <div className="saved-card-body">
-                          <span className="saved-card-dest">{pkg.destination}</span>
+                          <span className="saved-card-dest">{formatLocationPath(pkg)}</span>
                           <h4 className="saved-card-title">{pkgTitle}</h4>
                           <div className="saved-card-actions">
                             <button
@@ -531,7 +546,7 @@ export default function WorldMap() {
           <div className="modal-content-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header-container">
               <div>
-                <span className="modal-package-dest">{selectedPackage.destination}</span>
+                <span className="modal-package-dest">{formatLocationPath(selectedPackage)}</span>
                 <h2 className="modal-package-title">{selectedPkgTitle}</h2>
               </div>
               <button className="modal-close-btn" onClick={() => setSelectedPackage(null)}>✕</button>
