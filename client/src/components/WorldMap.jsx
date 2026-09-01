@@ -416,6 +416,12 @@ export default function WorldMap() {
     const currentTags = getPackageTags(selectedPackage);
     const safeData = Array.isArray(packagesData) ? packagesData : [];
 
+    // No score-floor filter here on purpose: a package with no shared
+    // destination/tags (e.g. UK's only package, which doesn't match any of
+    // the Ski/Cruise/All-Inclusive/Stopover/Tour keywords) would otherwise
+    // score 0 against everything and the section would just vanish - which
+    // reads as broken, not as "nothing relevant". Real matches (score > 0)
+    // still always sort ahead of these fallback ones.
     const scored = safeData
       .filter((pkg) => pkg && !arePackagesSame(pkg, selectedPackage))
       .map((pkg) => {
@@ -424,7 +430,6 @@ export default function WorldMap() {
         const score = (sameDestination ? 10 : 0) + sharedTagCount;
         return { pkg, score };
       })
-      .filter((entry) => entry.score > 0)
       .sort((a, b) => b.score - a.score);
 
     const seen = new Set();
