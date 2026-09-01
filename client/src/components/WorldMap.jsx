@@ -393,6 +393,37 @@ export default function WorldMap() {
   const isPackageSaved = selectedPackage ? savedPackages.some((s) => arePackagesSame(s, selectedPackage)) : false;
   const selectedPkgTitle = selectedPackage ? (selectedPackage.packageName || selectedPackage.title || selectedPackage.name || 'Package') : '';
 
+  // FCIPT3-30: "similar" = same destination first (score 10), then any shared
+  // filter tag (ski/cruise/all-inclusive/stopover/tour), highest score first,
+  // capped at 4 so the modal doesn't grow unbounded on well-tagged packages.
+  const similarPackages = useMemo(() => {
+    if (!selectedPackage) return [];
+    const currentTags = getPackageTags(selectedPackage);
+    const safeData = Array.isArray(packagesData) ? packagesData : [];
+
+    const scored = safeData
+      .filter((pkg) => pkg && !arePackagesSame(pkg, selectedPackage))
+      .map((pkg) => {
+        const sameDestination = pkg.destination === selectedPackage.destination;
+        const sharedTagCount = getPackageTags(pkg).filter((t) => currentTags.includes(t)).length;
+        const score = (sameDestination ? 10 : 0) + sharedTagCount;
+        return { pkg, score };
+      })
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    const seen = new Set();
+    const result = [];
+    for (const { pkg } of scored) {
+      const key = getPkgKey(pkg);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(pkg);
+      if (result.length >= 4) break;
+    }
+    return result;
+  }, [selectedPackage]);
+
   return (
     <div className="world-map-layout">
       <div ref={mapContainerRef} className="map-full-container" />
@@ -563,6 +594,42 @@ export default function WorldMap() {
                   {selectedPackage.description || selectedPackage.details || `Experience the ultimate journey to ${selectedPackage.destination}. This carefully curated package offers unforgettable sights, premium accommodations, and seamless travel arrangements tailored for explorers.`}
                 </p>
               </div>
+
+              {similarPackages.length > 0 && (
+                <div className="modal-overview-section">
+                  <h4 className="modal-overview-heading">You Might Also Like</h4>
+                  <div className="saved-packages-grid">
+                    {similarPackages.map((pkg, idx) => {
+                      const imgSrc =
+                        pkg.imageUrl ||
+                        pkg.image ||
+                        'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
+                      const price = pkg.fromPrice ? `$${pkg.fromPrice.toLocaleString('en-AU')}` : null;
+                      const title = pkg.packageName || pkg.title || pkg.name || 'Package';
+
+                      return (
+                        <div
+                          key={idx}
+                          className="saved-card-item"
+                          onClick={() => {
+                            trackPackageClick(pkg);
+                            setSelectedPackage(pkg);
+                          }}
+                        >
+                          <div className="saved-card-img-wrapper">
+                            <img src={imgSrc} alt={title} className="saved-card-img" />
+                            {price && <span className="saved-card-price-tag">From {price}</span>}
+                          </div>
+                          <div className="saved-card-body">
+                            <span className="saved-card-dest">{pkg.destination}</span>
+                            <h4 className="saved-card-title">{title}</h4>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="modal-footer-actions">
                 <button
