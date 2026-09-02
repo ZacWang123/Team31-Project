@@ -863,3 +863,210 @@ html, body {
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
+
+/* Modal backdrop and wider box */
+.modal-backdrop-profile {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.profile-modal-wide {
+  background-color: #d92228; /* Flight Centre Red */
+  width: 90vw;
+  max-width: 1200px;
+  height: 85vh;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  color: #ffffff;
+  overflow: hidden;
+}
+
+.flight-centre-red-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.profile-brand-title h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.fc-logo-text {
+  font-weight: bold;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+}
+
+.fc-sub-title {
+  display: block;
+  font-size: 0.6rem;
+  opacity: 0.8;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+/* Three Column Layout Engine */
+.three-column-layout {
+  display: flex;
+  flex-direction: row;
+  height: calc(100% - 70px);
+  padding: 20px;
+  gap: 20px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.profile-col-left,
+.profile-col-middle,
+.profile-col-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+/* Left Column Elements */
+.profile-section-block {
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 12px;
+}
+
+.profile-section-header {
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.mini-list-item {
+  font-size: 0.9rem;
+  padding: 4px 0;
+  opacity: 0.9;
+}
+
+/* Middle Column Shortlist */
+.shortlist-scroll-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.shortlist-card {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 8px;
+  position: relative;
+}
+
+.shortlist-img {
+  width: 60px;
+  height: 60px;
+  border-radius: 4px;
+  object-fit: cover;
+  margin-right: 12px;
+}
+
+.shortlist-info h4 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.shortlist-dest-label {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.shortlist-remove-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+}
+
+/* Right Column Form */
+.profile-col-right h3 {
+  margin-top: 0;
+}
+
+.save-form-instruction {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin-bottom: 16px;
+}
+
+.profile-form-input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 12px;
+  border-radius: 4px;
+  border: none;
+  background: #fff;
+  color: #333;
+  box-sizing: border-box;
+}
+
+.form-separator {
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: bold;
+  margin: 4px 0 12px 0;
+  opacity: 0.8;
+}
+
+.profile-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 20px;
+}
+
+.finish-session-btn {
+  width: 100%;
+  padding: 12px;
+  background-color: #fff;
+  color: #d92228;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.finish-session-btn:hover {
+  background-color: #f0f0f0;
+}
+
+.placeholder-text {
+  opacity: 0.6;
+  font-style: italic;
+  font-size: 0.85rem;
+}
