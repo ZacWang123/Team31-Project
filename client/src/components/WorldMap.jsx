@@ -5,6 +5,7 @@ import packagesData from '../data/packages.json';
 import cityPackagesData from '../data/cityPackages.json';
 import { useTravelProfile } from '../context/TravelProfileContext';
 import './WorldMap.css';
+import { generateConsultantReport } from '../utils/ProfileExport';
 
 /* FCIPT3-10: how many packages a city pin shows before "browse more" appears */
 const CITY_PREVIEW_LIMIT = 3;
@@ -49,6 +50,19 @@ const getPkgKey = (pkg) => {
   return String(pkg.id || pkg.packageName || pkg.title || '').trim();
 };
 
+// Country/city/place, extracted from Flight Centre's own supplier image
+// paths and package titles in FlightCentre_DB.csv (not guessed) - see
+// client/src/data/packages.json. Falls back to whatever level of detail
+// actually exists rather than repeating a level or inventing one.
+function formatLocationPath(pkg) {
+  if (!pkg) return '';
+  const parts = [];
+  if (pkg.country) parts.push(pkg.country);
+  if (pkg.city && pkg.city !== pkg.country) parts.push(pkg.city);
+  if (pkg.place) parts.push(pkg.place);
+  return parts.length > 0 ? parts.join(' › ') : (pkg.destination || '');
+}
+
 function getPackageTags(pkg) {
   const tags = [];
   const title = pkg.packageName || pkg.title || pkg.name || '';
@@ -71,6 +85,7 @@ function buildDestinations() {
     if (!byDestination.has(pkg.destination)) {
       byDestination.set(pkg.destination, {
         destination: pkg.destination,
+        country: pkg.country || '',
         lat: pkg.lat || 0,
         lon: pkg.lon || 0,
         iso3: pkg.iso3 || '',
@@ -289,6 +304,7 @@ function buildPopupHTML(dest, savedPackages = []) {
   return `
     <div class="popup-container">
       <div class="popup-header-wrapper">
+        ${dest.country && dest.country !== dest.destination ? `<span class="popup-dest-country">${dest.country}</span>` : ''}
         <span class="popup-dest-name">${dest.destination}</span>
         <span class="popup-dest-count">${dest.packages.length} package${dest.packages.length > 1 ? 's' : ''} available</span>
       </div>
@@ -380,6 +396,28 @@ export default function WorldMap() {
       })
       .filter(Boolean);
   }, [savedPackages]);
+
+  const handleSaveProfile = (e) => {
+    e.preventDefault();
+    const formElements = e.target.elements;
+
+    const formData = {
+      fullName: formElements[0].value,
+      email: formElements[1].value,
+      mobile: formElements[2].value
+    };
+
+    generateConsultantReport(
+      formData, 
+      savedPackages, 
+      viewedPackages, 
+      topSavedFilters, 
+      FILTER_OPTIONS, 
+      formatLocationPath
+    );
+
+    setIsProfileOpen(false);
+  };
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -668,16 +706,10 @@ export default function WorldMap() {
           .addTo(map);
 
         /*
-         * Give the popup room. Without this a pin near the bottom of the
-         * screen pushes the package list and the browse-more button off
-         * the edge, which on a kiosk there is no way to scroll back to.
+         * No map pan here. main now renders popups fixed and centred on
+         * screen (see .maplibregl-popup-content), so nudging the map to make
+         * room below the pin has no effect other than a jarring shift.
          */
-        map.easeTo({
-          center: [city.lon, city.lat],
-          offset: [0, -110],
-          duration: 500,
-          essential: true,
-        });
 
         const popupElem = popup.getElement();
         if (popupElem) {
@@ -818,6 +850,42 @@ export default function WorldMap() {
   const isPackageSaved = selectedPackage ? savedPackages.some((s) => arePackagesSame(s, selectedPackage)) : false;
   const selectedPkgTitle = selectedPackage ? (selectedPackage.packageName || selectedPackage.title || selectedPackage.name || 'Package') : '';
 
+  // FCIPT3-30: "similar" = same destination first (score 10), then any shared
+  // filter tag (ski/cruise/all-inclusive/stopover/tour), highest score first,
+  // capped at 4 so the modal doesn't grow unbounded on well-tagged packages.
+  const similarPackages = useMemo(() => {
+    if (!selectedPackage) return [];
+    const currentTags = getPackageTags(selectedPackage);
+    const safeData = Array.isArray(packagesData) ? packagesData : [];
+
+    // No score-floor filter here on purpose: a package with no shared
+    // destination/tags (e.g. UK's only package, which doesn't match any of
+    // the Ski/Cruise/All-Inclusive/Stopover/Tour keywords) would otherwise
+    // score 0 against everything and the section would just vanish - which
+    // reads as broken, not as "nothing relevant". Real matches (score > 0)
+    // still always sort ahead of these fallback ones.
+    const scored = safeData
+      .filter((pkg) => pkg && !arePackagesSame(pkg, selectedPackage))
+      .map((pkg) => {
+        const sameDestination = pkg.destination === selectedPackage.destination;
+        const sharedTagCount = getPackageTags(pkg).filter((t) => currentTags.includes(t)).length;
+        const score = (sameDestination ? 10 : 0) + sharedTagCount;
+        return { pkg, score };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    const seen = new Set();
+    const result = [];
+    for (const { pkg } of scored) {
+      const key = getPkgKey(pkg);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(pkg);
+      if (result.length >= 4) break;
+    }
+    return result;
+  }, [selectedPackage]);
+
   return (
     <div className="world-map-layout">
       <div ref={mapContainerRef} className="map-full-container" />
@@ -849,128 +917,121 @@ export default function WorldMap() {
         </button>
       </div>
 
-      {isProfileOpen && (
-        <div className="modal-backdrop-profile" onClick={() => setIsProfileOpen(false)}>
-          <div className="modal-content-box" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header-container">
-              <div>
-                <div className="modal-title-row">
-                  <h2 className="modal-title">Your Travel Profile</h2>
-                  <button onClick={resetProfile} className="reset-profile-btn">Reset Profile</button>
-                </div>
-                <div className="modal-divider"></div>
-                <div className="modal-tabs-container">
-                  <button
-                    onClick={() => setActiveProfileTab('viewed')}
-                    className={`modal-tab-btn ${activeProfileTab === 'viewed' ? 'active' : ''}`}
-                  >
-                    Viewed packages ({viewedPackages.length})
-                  </button>
-                  <span className="tab-separator">|</span>
-                  <button
-                    onClick={() => setActiveProfileTab('saved')}
-                    className={`modal-tab-btn ${activeProfileTab === 'saved' ? 'active' : ''}`}
-                  >
-                    Saved packages ({savedPackages.length})
-                  </button>
+    {isProfileOpen && (
+      <div className="modal-backdrop-profile" onClick={() => setIsProfileOpen(false)}>
+        <div className="modal-content-box profile-modal-wide" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header-container flight-centre-red-header">
+            <div className="profile-brand-title">
+              <span className="fc-logo-text">FLIGHT CENTRE</span>
+              <span className="fc-sub-title">TRAVEL GROUP</span>
+              <h2>Travel Profile</h2>
+            </div>
+            <button className="modal-close-btn" onClick={() => setIsProfileOpen(false)}>✕</button>
+          </div>
+
+          <div className="modal-body-container three-column-layout">
+            {/* COLUMN 1: Preferences, Recently Viewed & Activities */}
+            <div className="profile-col-left">
+              <div className="profile-section-block">
+                <div className="profile-section-header">Your Travel Preferences <span>▼</span></div>
+                <div className="profile-section-content">
+                  <p>Climate: <span className="placeholder-text">Not specified</span></p>
+                  <p>Price Range: <span className="placeholder-text">Not specified</span></p>
+                  <p>Travel Style: <span className="placeholder-text">Not specified</span></p>
                 </div>
               </div>
-              <button className="modal-close-btn" onClick={() => setIsProfileOpen(false)}>✕</button>
+
+              <div className="profile-section-block">
+                <div className="profile-section-header">Your Recently Viewed <span>▼</span></div>
+                <div className="profile-section-content">
+                  {viewedPackages.slice(0, 3).map((pkg, i) => (
+                    <div key={i} className="mini-list-item">{pkg.packageName || pkg.title}</div>
+                  ))}
+                  {viewedPackages.length === 0 && <p className="placeholder-text">No recently viewed packages</p>}
+                </div>
+              </div>
+
+              <div className="profile-section-block">
+                <div className="profile-section-header">Your Favourite Activities <span>▼</span></div>
+                <div className="profile-section-content">
+                  {topSavedFilters.length > 0 ? (
+                    topSavedFilters.map((tagId) => {
+                      const filterObj = FILTER_OPTIONS.find((f) => f.id === tagId);
+                      return <div key={tagId} className="mini-list-item">{filterObj ? filterObj.label : tagId}</div>;
+                    })
+                  ) : (
+                    <p className="placeholder-text">Save packages to see favourite activities</p>
+                  )}
+                </div>
+              </div>
             </div>
 
-            <div className="modal-body-container">
-              {activeProfileTab === 'saved' && topSavedFilters.length > 0 && (
-                <div className="top-filters-banner">
-                  <span className="top-filters-label">Your Top Filters:</span>
-                  <div className="top-filters-chips">
-                    {topSavedFilters.map((filterId) => {
-                      const filterObj = FILTER_OPTIONS.find((f) => f.id === filterId);
-                      const isFilterActive = activeFilters.includes(filterId);
-                      return (
-                        <button
-                          key={filterId}
-                          onClick={() => {
-                            setIsProfileOpen(false);
-                            toggleFilter(filterId);
-                          }}
-                          className={`top-filter-chip ${isFilterActive ? 'active' : ''}`}
-                        >
-                          {filterObj ? filterObj.label : filterId}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {displayedPackages.length === 0 ? (
-                <div className="empty-state-container">
-                  <p className="empty-state-emoji">{activeProfileTab === 'saved' ? '✈️' : '🔍'}</p>
-                  <p className="empty-state-title">
-                    {activeProfileTab === 'saved' ? 'No saved packages yet!' : 'No viewed packages yet!'}
-                  </p>
-                  <p className="empty-state-desc">
-                    {activeProfileTab === 'saved'
-                      ? 'Explore destinations on the map and click 🤍 Save on any package to add it to your travel profile.'
-                      : 'Click on destination pins or browse packages on the map to see your viewed history here.'}
-                  </p>
-                </div>
-              ) : (
-                <div className="saved-packages-grid">
-                  {displayedPackages.map((pkg, idx) => {
-                    const imgSrc =
-                      pkg.imageUrl ||
-                      pkg.image ||
-                      'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
-                    const price = pkg.fromPrice ? `$${pkg.fromPrice.toLocaleString('en-AU')}` : null;
+            {/* COLUMN 2: Destination Shortlist */}
+            <div className="profile-col-middle">
+              <h3>Your Destination Shortlist</h3>
+              <div className="shortlist-scroll-area">
+                {savedPackages.length === 0 ? (
+                  <p className="empty-shortlist">Your shortlist is empty. Save packages from the map to see them here.</p>
+                ) : (
+                  savedPackages.map((pkg, idx) => {
+                    const imgSrc = pkg.imageUrl || pkg.image || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
                     const pkgTitle = pkg.packageName || pkg.title || pkg.name || 'Package';
-                    const isSaved = savedPackages.some((s) => arePackagesSame(s, pkg));
-
                     return (
-                      <div
-                        key={idx}
-                        onClick={() => {
-                          trackPackageClick(pkg);
-                          setSelectedPackage(pkg);
-                        }}
-                        className="saved-card-item"
-                      >
-                        <div className="saved-card-img-wrapper">
-                          <img src={imgSrc} alt={pkgTitle} className="saved-card-img" />
-                          {price && <span className="saved-card-price-tag">From {price}</span>}
+                      <div key={idx} className="shortlist-card">
+                        <img src={imgSrc} alt={pkgTitle} className="shortlist-img" />
+                        <div className="shortlist-info">
+                          <span className="shortlist-dest-label">{formatLocationPath(pkg)}</span>
+                          <h4>{pkgTitle}</h4>
                         </div>
-                        <div className="saved-card-body">
-                          <span className="saved-card-dest">{pkg.destination}</span>
-                          <h4 className="saved-card-title">{pkgTitle}</h4>
-                          <div className="saved-card-actions">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleSavePackage(pkg);
-                              }}
-                              className={`profile-save-btn ${isSaved ? 'saved' : ''}`}
-                            >
-                              <span className="btn-text-default">{isSaved ? '❤️ Saved' : '🤍 Save'}</span>
-                              <span className="btn-text-hover">Remove from saved</span>
-                            </button>
-                          </div>
-                        </div>
+                        <button 
+                          className="shortlist-remove-btn" 
+                          onClick={() => toggleSavePackage(pkg)}
+                          title="Remove package"
+                        >
+                          ✕
+                        </button>
                       </div>
                     );
-                  })}
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* COLUMN 3: Save Your Profile Form */}
+            <div className="profile-col-right">
+              <h3>Save Your Profile</h3>
+              <p className="save-form-instruction">
+                You may enter your details here if you wish to save your profile for next time or continue with one of our travel experts.
+              </p>
+
+              <form onSubmit={handleSaveProfile}>
+                <input type="text" placeholder="Full Name..." className="profile-form-input" required />
+                <input type="email" placeholder="Email Address..." className="profile-form-input" />
+                <div className="form-separator">OR</div>
+                <input type="tel" placeholder="Mobile Number..." className="profile-form-input" />
+
+                <div className="profile-checkbox-group">
+                  <label><input type="checkbox" defaultChecked /> Save my personalised travel profile</label>
+                  <label><input type="checkbox" defaultChecked /> Send my profile to Flight Centre</label>
+                  <label><input type="checkbox" /> Send me personalised travel deals</label>
                 </div>
-              )}
+
+                <button type="submit" className="finish-session-btn">
+                  Finish & Clear Session
+                </button>
+              </form>
             </div>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {selectedPackage && (
         <div className="modal-backdrop-package" onClick={() => setSelectedPackage(null)}>
           <div className="modal-content-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header-container">
               <div>
-                <span className="modal-package-dest">{selectedPackage.destination}</span>
+                <span className="modal-package-dest">{formatLocationPath(selectedPackage)}</span>
                 <h2 className="modal-package-title">{selectedPkgTitle}</h2>
               </div>
               <button className="modal-close-btn" onClick={() => setSelectedPackage(null)}>✕</button>
@@ -1002,6 +1063,42 @@ export default function WorldMap() {
                   {selectedPackage.description || selectedPackage.details || `Experience the ultimate journey to ${selectedPackage.destination}. This carefully curated package offers unforgettable sights, premium accommodations, and seamless travel arrangements tailored for explorers.`}
                 </p>
               </div>
+
+              {similarPackages.length > 0 && (
+                <div className="modal-overview-section">
+                  <h4 className="modal-overview-heading">You Might Also Like</h4>
+                  <div className="saved-packages-grid">
+                    {similarPackages.map((pkg, idx) => {
+                      const imgSrc =
+                        pkg.imageUrl ||
+                        pkg.image ||
+                        'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
+                      const price = pkg.fromPrice ? `$${pkg.fromPrice.toLocaleString('en-AU')}` : null;
+                      const title = pkg.packageName || pkg.title || pkg.name || 'Package';
+
+                      return (
+                        <div
+                          key={idx}
+                          className="saved-card-item"
+                          onClick={() => {
+                            trackPackageClick(pkg);
+                            setSelectedPackage(pkg);
+                          }}
+                        >
+                          <div className="saved-card-img-wrapper">
+                            <img src={imgSrc} alt={title} className="saved-card-img" />
+                            {price && <span className="saved-card-price-tag">From {price}</span>}
+                          </div>
+                          <div className="saved-card-body">
+                            <span className="saved-card-dest">{formatLocationPath(pkg)}</span>
+                            <h4 className="saved-card-title">{title}</h4>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="modal-footer-actions">
                 <button
