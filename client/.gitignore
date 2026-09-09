@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Env files - may hold environment-specific API base URLs, never secrets
+# meant to be public, so keep them local like the server's .env
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

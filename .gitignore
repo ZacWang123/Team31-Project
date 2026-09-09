@@ -3,3 +3,7 @@
 
 # Internal / sensitive data - do not publish
 FlightCentre_DB.csv
+
+# Server - node_modules and real secrets (Mongo URI, Google Sheets API key)
+server/node_modules
+server/.env

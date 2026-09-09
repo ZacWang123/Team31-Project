@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import packagesData from '../data/packages.json';
 import cityPackagesData from '../data/cityPackages.json';
 import { useTravelProfile } from '../context/TravelProfileContext';
 import './WorldMap.css';
 import { generateConsultantReport } from '../utils/ProfileExport';
+
+// FCIPT3-25: packages now come from the live database (synced from Flight
+// Centre's Google Sheet) instead of the bundled packages.json. City-level
+// pins (cityPackagesData, above) are a separate, still-static dataset -
+// out of scope for this ticket.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 /* FCIPT3-10: how many packages a city pin shows before "browse more" appears */
 const CITY_PREVIEW_LIMIT = 3;
@@ -51,9 +56,10 @@ const getPkgKey = (pkg) => {
 };
 
 // Country/city/place, extracted from Flight Centre's own supplier image
-// paths and package titles in FlightCentre_DB.csv (not guessed) - see
-// client/src/data/packages.json. Falls back to whatever level of detail
-// actually exists rather than repeating a level or inventing one.
+// paths and package titles (not guessed) - see server/src/services/
+// transform.js, which enriches each row on sync from the live database.
+// Falls back to whatever level of detail actually exists rather than
+// repeating a level or inventing one.
 function formatLocationPath(pkg) {
   if (!pkg) return '';
   const parts = [];
@@ -76,7 +82,7 @@ function getPackageTags(pkg) {
   return tags;
 }
 
-function buildDestinations() {
+function buildDestinations(packagesData) {
   const byDestination = new Map();
   const safeData = Array.isArray(packagesData) ? packagesData : [];
 
@@ -341,6 +347,37 @@ export default function WorldMap() {
   const [activeProfileTab, setActiveProfileTab] = useState('saved');
   const [selectedPackage, setSelectedPackage] = useState(null);
 
+  // FCIPT3-25: live database instead of a bundled JSON import. Editing the
+  // Google Sheet and re-syncing changes what shows here with no rebuild.
+  const [packagesData, setPackagesData] = useState([]);
+  const [packagesLoading, setPackagesLoading] = useState(true);
+  const [packagesError, setPackagesError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch(`${API_BASE_URL}/api/packages`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Server responded ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setPackagesData(Array.isArray(data) ? data : []);
+        setPackagesLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('Failed to load packages from the live database:', err);
+        setPackagesError(err.message);
+        setPackagesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const travelContext = useTravelProfile() || {};
   const {
     savedPackages = [],
@@ -366,7 +403,7 @@ export default function WorldMap() {
     }
   }, [savedPackages]);
 
-  const destinations = useMemo(() => buildDestinations(), []);
+  const destinations = useMemo(() => buildDestinations(packagesData), [packagesData]);
   const cityIndex = useMemo(() => buildCityIndex(), []);
 
   const cityIndexRef = useRef(cityIndex);
@@ -421,6 +458,12 @@ export default function WorldMap() {
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
+    // Wait for the live database fetch before building the map - this
+    // effect depends on [destinations] further down and rebuilds the whole
+    // map (layers, click handlers, markers) whenever it changes. Starting
+    // it before packages have loaded would build an empty map, then
+    // immediately tear it down and rebuild it once real data arrives.
+    if (packagesLoading) return;
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
@@ -633,7 +676,7 @@ export default function WorldMap() {
         mapInstanceRef.current = null;
       }
     };
-  }, [destinations]);
+  }, [destinations, packagesLoading]);
 
   /* ----------------------------------------------------------------------
      FCIPT3-10: city pins
@@ -795,12 +838,19 @@ export default function WorldMap() {
     const map = mapInstanceRef.current;
     if (!map || !mapLoaded || !map.isStyleLoaded()) return;
 
+    // IMPORTANT: use marker.setOpacity(), not element.style.opacity directly -
+    // MapLibre's Marker re-applies its own internal opacity on every map
+    // render (including mid-flyTo/fitBounds), so a raw style write gets
+    // silently clobbered back to 1 the moment the camera next moves. (This
+    // exact regression has landed on main three times now via merges that
+    // reintroduce the old pattern - if you're resolving a merge conflict
+    // here, keep this version.)
     markersRef.current.forEach(({ marker, element, destination }) => {
       const matches =
         activeFilters.length === 0 ||
         activeFilters.some((filter) => destination.tags.includes(filter));
-      if (marker && marker.getElement()) {
-        marker.getElement().style.opacity = matches ? '1' : '0.25';
+      if (marker && typeof marker.setOpacity === 'function') {
+        marker.setOpacity(matches ? '1' : '0.25');
       }
       if (element) {
         element.style.pointerEvents = matches ? 'auto' : 'none';
@@ -884,11 +934,24 @@ export default function WorldMap() {
       if (result.length >= 4) break;
     }
     return result;
-  }, [selectedPackage]);
+  }, [selectedPackage, packagesData]);
 
   return (
     <div className="world-map-layout">
       <div ref={mapContainerRef} className="map-full-container" />
+
+      {packagesLoading && (
+        <div className="live-db-status live-db-loading">
+          <span className="live-db-spinner" aria-hidden="true" />
+          Loading live package data&hellip;
+        </div>
+      )}
+
+      {!packagesLoading && packagesError && (
+        <div className="live-db-status live-db-error">
+          Couldn't reach the live database ({packagesError}). Is the server running on {API_BASE_URL}?
+        </div>
+      )}
 
       {activeCountry && (
         <button
