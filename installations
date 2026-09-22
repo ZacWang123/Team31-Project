@@ -15,11 +15,21 @@ npm create vite@latest client
 cd client
 npm install
 
-#open webapp
-npm run dev
-
 #install map
 
 npm install maplibre-gl
 
 npm install express mongoose cors dotenv
+
+npm init -y
+npm install express cors nodemailer
+
+#open webapp
+cd client
+npm run dev
+
+---- NEW TERMINAL ----
+#start server
+cd server
+node server.js
+

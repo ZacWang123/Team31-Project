@@ -347,6 +347,15 @@ export default function WorldMap() {
   const [activeProfileTab, setActiveProfileTab] = useState('saved');
   const [selectedPackage, setSelectedPackage] = useState(null);
 
+const NOMINATED_STORE_EMAIL = "team31qut736@gmail.com";
+const [profileName, setProfileName] = useState("");
+const [profileEmail, setProfileEmail] = useState("");
+const [profilePhone, setProfilePhone] = useState("");
+const [sendToSelf, setSendToSelf] = useState(true);
+const [sendToStore, setSendToStore] = useState(true);
+const [saveProfileLocal, setSaveProfileLocal] = useState(true);
+const [receiveDeals, setReceiveDeals] = useState(false);
+
   // FCIPT3-25: live database instead of a bundled JSON import. Editing the
   // Google Sheet and re-syncing changes what shows here with no rebuild.
   const [packagesData, setPackagesData] = useState([]);
@@ -434,26 +443,59 @@ export default function WorldMap() {
       .filter(Boolean);
   }, [savedPackages]);
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    const formElements = e.target.elements;
 
-    const formData = {
-      fullName: formElements[0].value,
-      email: formElements[1].value,
-      mobile: formElements[2].value
+    if (sendToSelf && !profileEmail) {
+      alert("Please enter an email address.");
+      return;
+    }
+
+    const payload = {
+      user: {
+        name: profileName,
+        email: profileEmail,
+        phone: profilePhone,
+      },
+      savedPackages,
+      viewedPackages,
+      favouriteActivities: topSavedFilters,
+      timestamp: new Date().toISOString(),
     };
 
-    generateConsultantReport(
-      formData, 
-      savedPackages, 
-      viewedPackages, 
-      topSavedFilters, 
-      FILTER_OPTIONS, 
-      formatLocationPath
-    );
+    try {
+      // 1. Send to Customer
+      if (sendToSelf) {
+        await fetch(`${API_BASE_URL}/api/send-profile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipient: profileEmail,
+            type: 'CUSTOMER_COPY',
+            data: payload,
+          }),
+        });
+      }
 
-    setIsProfileOpen(false);
+      // 2. Send to Store
+      if (sendToStore) {
+        await fetch(`${API_BASE_URL}/api/send-profile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipient: NOMINATED_STORE_EMAIL,
+            type: 'STORE_LEAD',
+            data: payload,
+          }),
+        });
+      }
+
+      alert("Real email sent successfully!");
+      setIsProfileOpen(false);
+    } catch (err) {
+      console.error("Failed to send email:", err);
+      alert("Could not reach backend server on http://localhost:4000");
+    }
   };
 
   useEffect(() => {
@@ -1061,26 +1103,82 @@ export default function WorldMap() {
             </div>
 
             {/* COLUMN 3: Save Your Profile Form */}
+            {/* COLUMN 3: Save Your Profile Form */}
             <div className="profile-col-right">
               <h3>Save Your Profile</h3>
               <p className="save-form-instruction">
-                You may enter your details here if you wish to save your profile for next time or continue with one of our travel experts.
+                Enter your details below to receive a copy of your travel profile or connect with a Flight Centre travel expert.
               </p>
 
               <form onSubmit={handleSaveProfile}>
-                <input type="text" placeholder="Full Name..." className="profile-form-input" required />
-                <input type="email" placeholder="Email Address..." className="profile-form-input" />
+                <input 
+                  type="text" 
+                  placeholder="Full Name *" 
+                  className="profile-form-input" 
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  required 
+                />
+
+                <input 
+                  type="email" 
+                  placeholder="Email Address (Required to send copy)..." 
+                  className="profile-form-input" 
+                  value={profileEmail}
+                  onChange={(e) => setProfileEmail(e.target.value)}
+                  required={sendToSelf}
+                />
+
                 <div className="form-separator">OR</div>
-                <input type="tel" placeholder="Mobile Number..." className="profile-form-input" />
+
+                <input 
+                  type="tel" 
+                  placeholder="Mobile Number..." 
+                  className="profile-form-input" 
+                  value={profilePhone}
+                  onChange={(e) => setProfilePhone(e.target.value)}
+                />
 
                 <div className="profile-checkbox-group">
-                  <label><input type="checkbox" defaultChecked /> Save my personalised travel profile</label>
-                  <label><input type="checkbox" defaultChecked /> Send my profile to Flight Centre</label>
-                  <label><input type="checkbox" /> Send me personalised travel deals</label>
+                  <label>
+                    <input 
+                      type="checkbox" 
+                      checked={sendToSelf} 
+                      onChange={(e) => setSendToSelf(e.target.checked)} 
+                    /> 
+                    Send a copy to my email
+                  </label>
+
+                  <label>
+                    <input 
+                      type="checkbox" 
+                      checked={sendToStore} 
+                      onChange={(e) => setSendToStore(e.target.checked)} 
+                    /> 
+                    Send my profile to Flight Centre Store ({NOMINATED_STORE_EMAIL})
+                  </label>
+
+                  <label>
+                    <input 
+                      type="checkbox" 
+                      checked={saveProfileLocal} 
+                      onChange={(e) => setSaveProfileLocal(e.target.checked)} 
+                    /> 
+                    Save my personalised travel profile locally
+                  </label>
+
+                  <label>
+                    <input 
+                      type="checkbox" 
+                      checked={receiveDeals} 
+                      onChange={(e) => setReceiveDeals(e.target.checked)} 
+                    /> 
+                    Send me personalised travel deals
+                  </label>
                 </div>
 
                 <button type="submit" className="finish-session-btn">
-                  Finish & Clear Session
+                  Finish & Submit Profile
                 </button>
               </form>
             </div>
