@@ -13,6 +13,15 @@ import TravelProfileModal from './TravelProfileModal';
 import { getSimilarPackages } from '../utils/packageRecommendations';
 import { arePackagesSame, getPkgKey, getPackageTags } from '../utils/packageUtils';
 
+import {
+  MAP_DEFAULTS,
+  EMPTY_COUNTRY_DIM_FILTER,
+  buildCountryDimFilter,
+} from '../constants/mapConstants';
+
+import { useMapMarkerOpacity } from '../hooks/useMapMarkerOpacity';
+import { resetMapCamera, removeActivePopups } from '../utils/mapCameraUtils';
+
 // FCIPT3-25: packages now come from the live database (synced from Flight
 // Centre's Google Sheet) instead of the bundled packages.json. City-level
 // pins (cityPackagesData, above) are a separate, still-static dataset -
@@ -945,53 +954,18 @@ const [receiveDeals, setReceiveDeals] = useState(false);
     if (cityPopupRef.current) cityPopupRef.current.remove();
   }, [searchQuery, activeFilters]);
 
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map || !mapLoaded || !map.isStyleLoaded()) return;
-
-    // IMPORTANT: use marker.setOpacity(), not element.style.opacity directly -
-    // MapLibre's Marker re-applies its own internal opacity on every map
-    // render (including mid-flyTo/fitBounds), so a raw style write gets
-    // silently clobbered back to 1 the moment the camera next moves. (This
-    // exact regression has landed on main three times now via merges that
-    // reintroduce the old pattern - if you're resolving a merge conflict
-    // here, keep this version.)
-    markersRef.current.forEach(({ marker, element, destination }) => {
-      const matches = destination.packages.some((pkg) => visiblePackagesRef.current.has(pkg));
-      if (marker && typeof marker.setOpacity === 'function') {
-        marker.setOpacity(matches ? '1' : '0');
-      }
-      if (element) {
-        element.style.pointerEvents = matches ? 'auto' : 'none';
-        element.classList.toggle('is-search-match', Boolean(selectedSearchPackage && destination.packages.includes(selectedSearchPackage)));
-        element.style.display = !activeCountry || (selectedSearchPackage && destination.packages.includes(selectedSearchPackage)) ? '' : 'none';
-      }
-    });
-
-    try {
-      if (activeFilters.length === 0 && !normalizedSearch) {
-        map.setFilter('country-dim-overlay', ['in', ['get', 'ISO_A3'], ['literal', []]]);
-        return;
-      }
-
-      const matchingIso3 = [...new Set(matchingPackages.map((pkg) => pkg.iso3).filter(Boolean))];
-
-      /*
-       * ISO_A3 is "-99" for France and Norway in this dataset, and coalesce
-       * treats "-99" as a real value, so ISO_A3_EH / ADM0_A3 have to come first.
-       */
-      map.setFilter('country-dim-overlay', [
-        '!',
-        [
-          'in',
-          ['coalesce', ['get', 'ISO_A3_EH'], ['get', 'ADM0_A3'], ['get', 'ISO_A3'], ['get', 'iso_a3']],
-          ['literal', matchingIso3],
-        ],
-      ]);
-    } catch (err) {
-      console.error('Failed to update map filter:', err);
-    }
-  }, [matchingPackages, selectedSearchPackage, activeCountry, activeFilters, normalizedSearch, mapLoaded, destinations]);
+  useMapMarkerOpacity({
+    mapInstanceRef,
+    markersRef,
+    visiblePackagesRef,
+    matchingPackages,
+    selectedSearchPackage,
+    activeCountry,
+    activeFilters,
+    normalizedSearch,
+    mapLoaded,
+    destinations,
+  });
 
   const toggleFilter = (filterId) => {
     setSelectedSearchPackage(null);
@@ -1014,35 +988,30 @@ const [receiveDeals, setReceiveDeals] = useState(false);
   // filter tag (ski/cruise/all-inclusive/stopover/tour), highest score first,
   // capped at 4 so the modal doesn't grow unbounded on well-tagged packages.
   const similarPackages = useMemo(() => {
-    const allPackages = packagesData || cityPackagesData || [];
-    return getSimilarPackages(selectedPackage, allPackages, 4);
-  }, [selectedPackage, packagesData]);
+    // Uses matchingPackages if available from state, otherwise falls back to cityPackagesData
+    const sourceData = (typeof matchingPackages !== 'undefined' && matchingPackages.length > 0)
+      ? matchingPackages
+      : cityPackagesData;
+
+    const results = getSimilarPackages(selectedPackage, sourceData, 4);
+    return results;
+  }, [selectedPackage, matchingPackages]);
 
   const handleResetMap = () => {
-    // Clear active filters if the state setter exists
-    if (typeof setActiveFilters === 'function') {
-      setActiveFilters([]);
-    }
-
-    // Clear package selections if state setters exist
+    if (typeof setActiveFilters === 'function') setActiveFilters([]);
     if (typeof setSelectedSearchPackage === 'function') setSelectedSearchPackage(null);
     if (typeof setSelectedPackage === 'function') setSelectedPackage(null);
 
-    // Close open popups
-    if (popupRef.current) popupRef.current.remove();
-    if (cityPopupRef.current) cityPopupRef.current.remove();
+    removeActivePopups(popupRef, cityPopupRef);
 
-    // Reset country view and camera
     if (typeof setActiveCountry === 'function') setActiveCountry(null);
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.flyTo({ center: [0, 20], zoom: 2, duration: 1000 });
-    }
+    resetMapCamera(mapInstanceRef.current);
   };
 
   const handleBackToWorld = () => {
-    if (cityPopupRef.current) cityPopupRef.current.remove();
+    removeActivePopups(popupRef, cityPopupRef);
     if (typeof setActiveCountry === 'function') setActiveCountry(null);
-    mapInstanceRef.current?.flyTo({ center: [0, 20], zoom: 2, duration: 1000 });
+    resetMapCamera(mapInstanceRef.current);
   };
 
   return (
