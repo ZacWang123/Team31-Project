@@ -44,7 +44,13 @@ export default function PackageSearch({ query, onQueryChange, results, onSelect,
   return (
     <div className="package-search" ref={rootRef}>
       <div className="package-search-field">
-        <i aria-hidden="true" className="fi-rr-search package-search-icon" />
+        {/* A <label> (not a bare span) so tapping the icon focuses the input
+            even on small screens where the input collapses to ~0 width -
+            native label-click-focuses-its-input behavior, no extra JS state
+            needed to expand/collapse the search bar. */}
+        <label htmlFor="package-search-input" aria-hidden="true" className="package-search-icon-label">
+          <i className="fi-rr-search package-search-icon" />
+        </label>
         <input
           id="package-search-input"
           className="package-search-input"
@@ -55,7 +61,7 @@ export default function PackageSearch({ query, onQueryChange, results, onSelect,
           aria-controls="package-search-results"
           aria-expanded={Boolean(showList)}
           aria-activedescendant={showList && activeIndex >= 0 ? `package-search-option-${activeIndex}` : undefined}
-          placeholder="Search packages, cities, destinations or countries"
+          placeholder="Search here"
           value={query}
           onFocus={() => setOpen(true)}
           onChange={(event) => {
