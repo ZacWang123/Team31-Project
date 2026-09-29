@@ -782,6 +782,11 @@ html, body {
   border: 1px solid #334155;
   border-radius: 12px;
   padding: 16px;
+  /* So max-width (used on small screens to keep clear of the zoom/reset
+     controls) constrains the actual rendered box including padding and
+     border, not just the content area - otherwise the real box ends up
+     wider than the max-width value and can overlap those controls. */
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1556,66 +1561,36 @@ html, body {
   .desktop-controls { bottom: 12px; right: 12px; }
 }
 
-/* Phones + iPad-portrait: shrink "Find your trip" to just the search icon
-   (expands on tap/focus) and swap the "Filter Destinations" chip row for a
-   native <select>, since both a full-width search bar and a wrapping row of
-   pill buttons get cramped at these widths. */
+/* Phones + iPad-portrait: same design as desktop (full-width search bar,
+   same panel) just scaled down - no layout change, no collapsing to an
+   icon. "Filter Destinations" still swaps the chip row for a native
+   <select> here since a wrapping row of pill buttons gets cramped at
+   these widths, but the search bar itself stays exactly as it looks on
+   desktop, just smaller. Two tiers (tablet, then phone) so it keeps
+   scaling down as the screen gets smaller instead of jumping straight
+   to the smallest size. */
 @media (max-width: 768px) {
-  .filter-header-search {
-    display: none;
+  .filter-panel {
+    padding: 14px;
+    gap: 10px;
   }
 
-  .package-search {
-    width: auto;
-    align-self: flex-start;
+  .filter-header {
+    font-size: 12px;
   }
 
-  /* Sized to the full 44px tap target (not just the icon glyph inside
-     it) - otherwise only the small icon itself is clickable even though
-     the whole button-sized area looks tappable. */
-  .package-search-icon-label {
-    flex-shrink: 0;
-    width: 44px;
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  /* Collapsed: no card of its own, just the bare icon sitting in the
-     panel like plain text - the boxed/shadowed look from the base rule
-     only reads right once it's expanded to a full search bar below.
-     Width stays 44px (not shrunk to the icon's own size) to match this
-     project's existing 44px minimum touch target convention (see the
-     .city-pin comment above). */
   .package-search-field {
-    width: 44px;
-    min-height: 44px;
-    padding: 0;
-    justify-content: center;
-    overflow: hidden;
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
-    transition: width 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+    min-height: 42px;
+    padding: 0 10px;
+    gap: 6px;
   }
 
-  .package-search-field:focus-within {
-    width: min(280px, calc(100vw - 80px));
-    min-height: 44px;
-    padding: 0 12px;
-    justify-content: flex-start;
-    background: rgba(15, 23, 42, 0.95);
-    border-color: #38bdf8;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  .package-search-icon {
+    font-size: 20px;
   }
 
-  /* Fully icon-only when collapsed - without this, the input's own text
-     peeks out past the clipped edge instead of staying hidden. */
-  .package-search-field:not(:focus-within) .package-search-input,
-  .package-search-field:not(:focus-within) .package-search-clear {
-    opacity: 0;
-    pointer-events: none;
+  .package-search-input {
+    font-size: 12px;
   }
 
   .chip-container {
@@ -1624,5 +1599,31 @@ html, body {
 
   .filter-select-mobile {
     display: block;
+    min-height: 38px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .filter-panel {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .filter-header {
+    font-size: 11px;
+  }
+
+  .package-search-field {
+    min-height: 38px;
+    padding: 0 8px;
+  }
+
+  .package-search-icon {
+    font-size: 18px;
+  }
+
+  .filter-select-mobile {
+    min-height: 34px;
   }
 }
