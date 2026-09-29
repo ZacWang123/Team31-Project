@@ -1,0 +1,9 @@
+// src/utils/locationUtils.js
+
+/**
+ * Formats city and country into a clean readable string.
+ */
+export function formatLocationName(city, country) {
+  if (!city && !country) return '';
+  return [city, country].filter(Boolean).join(', ');
+}

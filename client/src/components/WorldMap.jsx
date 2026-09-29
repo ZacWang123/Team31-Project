@@ -7,6 +7,15 @@ import { useTravelProfile } from '../context/TravelProfileContext';
 import './WorldMap.css';
 import './PackagePopupTheme.css';
 import { generateConsultantReport } from '../utils/ProfileExport';
+import { FILTER_OPTIONS } from '../constants/mapConstants';
+// import { filterPackages } from '../utils/packageUtils';
+import { formatLocationName } from '../utils/locationUtils';
+import MapControls from './MapControls';
+import FilterPanel from './FilterPanel';
+import TravelProfileModal from './TravelProfileModal';
+import PackageDetailModal from './PackageDetailModal';
+import StatusBanner from './StatusBanner';
+import TopBar from './TopBar';
 
 // FCIPT3-25: packages now come from the live database (synced from Flight
 // Centre's Google Sheet) instead of the bundled packages.json. City-level
@@ -33,8 +42,6 @@ const TAG_RULES = [
   { id: 'stopover', label: 'Stopover', icon: 'fi-rr-route', test: /stopover/i },
   { id: 'tour', label: 'Tours & Expeditions', icon: 'fi-rr-mountains', test: /tour|express|explorer|discovery|expedition/i },
 ];
-
-const FILTER_OPTIONS = TAG_RULES.map(({ id, label, icon }) => ({ id, label, icon }));
 
 const customZoomViews = {
   Australia: { center: [133.7751, -25.2744], zoom: 4.6 },
@@ -1112,19 +1119,12 @@ const [receiveDeals, setReceiveDeals] = useState(false);
     <div className="world-map-layout">
       <div ref={mapContainerRef} className="map-full-container" />
 
-      {packagesLoading && (
-        <div className="live-db-status live-db-loading">
-          <span className="live-db-spinner" aria-hidden="true" />
-          Loading live package data&hellip;
-        </div>
-      )}
-
-      {!packagesLoading && packagesError && (
-        <div className="live-db-status live-db-error">
-          Couldn't reach the live database ({packagesError}). Is the server running on {API_BASE_URL}?
-        </div>
-      )}
-
+      {/* <StatusBanner 
+        loading={packagesLoading} 
+        error={packagesError} 
+        apiBaseUrl={API_BASE_URL} 
+      /> */}
+      
       {activeCountry && (
         <button
           className="back-to-world-btn"
@@ -1139,356 +1139,75 @@ const [receiveDeals, setReceiveDeals] = useState(false);
         </button>
       )}
 
-      <div className="top-bar">
-        <div className="top-bar-logo">
-          <i className="fi-br-map-marker" aria-hidden="true" />
-          <span>FLIGHT CENTRE</span>
-        </div>
-        <button
-          onClick={() => {
-            setSelectedPackage(null);
-            setIsProfileOpen(true);
-          }}
-          className="view-profile-btn"
-        >
-          <span>View Travel Profile</span>
-          <i className="fi-rr-user profile-icon" aria-hidden="true" />
-        </button>
-      </div>
+      <TopBar 
+        onViewProfile={() => {
+          setSelectedPackage(null);
+          setIsProfileOpen(true);
+        }} 
+      />
 
-    {isProfileOpen && (
-      <div className="modal-backdrop-profile" onClick={() => setIsProfileOpen(false)}>
-        <div className="modal-content-box profile-modal-wide" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-header-container flight-centre-red-header">
-            <div className="profile-brand-title">
-              <span className="fc-logo-text">FLIGHT CENTRE</span>
-              <span className="fc-sub-title">TRAVEL GROUP</span>
-              <h2>Travel Profile</h2>
-            </div>
-            <button className="modal-close-btn" onClick={() => setIsProfileOpen(false)}><i className="fi-rr-cross" aria-hidden="true" /></button>
-          </div>
+      <TravelProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        viewedPackages={viewedPackages}
+        savedPackages={savedPackages}
+        topSavedFilters={topSavedFilters}
+        toggleSavePackage={toggleSavePackage}
+        profileName={profileName}
+        setProfileName={setProfileName}
+        profileEmail={profileEmail}
+        setProfileEmail={setProfileEmail}
+        profilePhone={profilePhone}
+        setProfilePhone={setProfilePhone}
+        sendToSelf={sendToSelf}
+        setSendToSelf={setSendToSelf}
+        sendToStore={sendToStore}
+        setSendToStore={setSendToStore}
+        saveProfileLocal={saveProfileLocal}
+        setSaveProfileLocal={setSaveProfileLocal}
+        receiveDeals={receiveDeals}
+        setReceiveDeals={setReceiveDeals}
+        handleSaveProfile={handleSaveProfile}
+      />
 
-          <div className="modal-body-container three-column-layout">
-            {/* COLUMN 1: Preferences, Recently Viewed & Activities */}
-            <div className="profile-col-left">
-              <div className="profile-section-block">
-                <div className="profile-section-header">Your Travel Preferences <span>▼</span></div>
-                <div className="profile-section-content">
-                  <p>Climate: <span className="placeholder-text">Not specified</span></p>
-                  <p>Price Range: <span className="placeholder-text">Not specified</span></p>
-                  <p>Travel Style: <span className="placeholder-text">Not specified</span></p>
-                </div>
-              </div>
+      <PackageDetailModal
+        selectedPackage={selectedPackage}
+        onClose={() => setSelectedPackage(null)}
+        selectedPkgTitle={selectedPkgTitle}
+        similarPackages={similarPackages}
+        trackPackageClick={trackPackageClick}
+        setSelectedPackage={setSelectedPackage}
+        toggleSavePackage={toggleSavePackage}
+        isPackageSaved={isPackageSaved}
+      />
 
-              <div className="profile-section-block">
-                <div className="profile-section-header">Your Recently Viewed <span>▼</span></div>
-                <div className="profile-section-content">
-                  {viewedPackages.slice(0, 3).map((pkg, i) => (
-                    <div key={i} className="mini-list-item">{pkg.packageName || pkg.title}</div>
-                  ))}
-                  {viewedPackages.length === 0 && <p className="placeholder-text">No recently viewed packages</p>}
-                </div>
-              </div>
+      <FilterPanel
+        searchQuery={searchQuery}
+        updateSearch={updateSearch}
+        matchingPackages={matchingPackages}
+        searchLocation={searchLocation}
+        selectSearchResult={selectSearchResult}
+        packagesLoading={packagesLoading}
+        activeFilters={activeFilters}
+        toggleFilter={toggleFilter}
+        trackFilterClick={trackFilterClick}
+        setActiveFilters={setActiveFilters}
+      />
 
-              <div className="profile-section-block">
-                <div className="profile-section-header">Your Favourite Activities <span>▼</span></div>
-                <div className="profile-section-content">
-                  {topSavedFilters.length > 0 ? (
-                    topSavedFilters.map((tagId) => {
-                      const filterObj = FILTER_OPTIONS.find((f) => f.id === tagId);
-                      return <div key={tagId} className="mini-list-item">{filterObj ? filterObj.label : tagId}</div>;
-                    })
-                  ) : (
-                    <p className="placeholder-text">Save packages to see favourite activities</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* COLUMN 2: Destination Shortlist */}
-            <div className="profile-col-middle">
-              <h3>Your Destination Shortlist</h3>
-              <div className="shortlist-scroll-area">
-                {savedPackages.length === 0 ? (
-                  <p className="empty-shortlist">Your shortlist is empty. Save packages from the map to see them here.</p>
-                ) : (
-                  savedPackages.map((pkg, idx) => {
-                    const imgSrc = pkg.imageUrl || pkg.image || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
-                    const pkgTitle = pkg.packageName || pkg.title || pkg.name || 'Package';
-                    return (
-                      <div key={idx} className="shortlist-card">
-                        <img src={imgSrc} alt={pkgTitle} className="shortlist-img" />
-                        <div className="shortlist-info">
-                          <span className="shortlist-dest-label">{formatLocationPath(pkg)}</span>
-                          <h4>{pkgTitle}</h4>
-                        </div>
-                        <button 
-                          className="shortlist-remove-btn" 
-                          onClick={() => toggleSavePackage(pkg)}
-                          title="Remove package"
-                        >
-                          <i className="fi-rr-cross-small" aria-hidden="true" />
-                        </button>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* COLUMN 3: Save Your Profile Form */}
-            {/* COLUMN 3: Save Your Profile Form */}
-            <div className="profile-col-right">
-              <h3>Save Your Profile</h3>
-              <p className="save-form-instruction">
-                Enter your details below to receive a copy of your travel profile or connect with a Flight Centre travel expert.
-              </p>
-
-              <form onSubmit={handleSaveProfile}>
-                <input 
-                  type="text" 
-                  placeholder="Full Name *" 
-                  className="profile-form-input" 
-                  value={profileName}
-                  onChange={(e) => setProfileName(e.target.value)}
-                  required 
-                />
-
-                <input 
-                  type="email" 
-                  placeholder="Email Address (Required to send copy)..." 
-                  className="profile-form-input" 
-                  value={profileEmail}
-                  onChange={(e) => setProfileEmail(e.target.value)}
-                  required={sendToSelf}
-                />
-
-                <div className="form-separator">OR</div>
-
-                <input 
-                  type="tel" 
-                  placeholder="Mobile Number..." 
-                  className="profile-form-input" 
-                  value={profilePhone}
-                  onChange={(e) => setProfilePhone(e.target.value)}
-                />
-
-                <div className="profile-checkbox-group">
-                  <label>
-                    <input 
-                      type="checkbox" 
-                      checked={sendToSelf} 
-                      onChange={(e) => setSendToSelf(e.target.checked)} 
-                    /> 
-                    Send a copy to my email
-                  </label>
-
-                  <label>
-                    <input 
-                      type="checkbox" 
-                      checked={sendToStore} 
-                      onChange={(e) => setSendToStore(e.target.checked)} 
-                    /> 
-                    Send my profile to Flight Centre Store ({NOMINATED_STORE_EMAIL})
-                  </label>
-
-                  <label>
-                    <input 
-                      type="checkbox" 
-                      checked={saveProfileLocal} 
-                      onChange={(e) => setSaveProfileLocal(e.target.checked)} 
-                    /> 
-                    Save my personalised travel profile locally
-                  </label>
-
-                  <label>
-                    <input 
-                      type="checkbox" 
-                      checked={receiveDeals} 
-                      onChange={(e) => setReceiveDeals(e.target.checked)} 
-                    /> 
-                    Send me personalised travel deals
-                  </label>
-                </div>
-
-                <button type="submit" className="finish-session-btn">
-                  Finish & Submit Profile
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
-
-      {selectedPackage && (
-        <div className="modal-backdrop-package" onClick={() => setSelectedPackage(null)}>
-          <div className="modal-content-box" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header-container">
-              <div>
-                <span className="modal-package-dest">{formatLocationPath(selectedPackage)}</span>
-                <h2 className="modal-package-title">{selectedPkgTitle}</h2>
-              </div>
-              <button className="modal-close-btn" onClick={() => setSelectedPackage(null)}><i className="fi-rr-cross" aria-hidden="true" /></button>
-            </div>
-
-            <div className="modal-body-container">
-              <div className="modal-hero-wrapper">
-                <img
-                  src={selectedPackage.imageUrl || selectedPackage.image || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80'}
-                  alt={selectedPkgTitle}
-                  className="modal-hero-img"
-                />
-                {selectedPackage.fromPrice && (
-                  <span className="modal-hero-price">
-                    From ${selectedPackage.fromPrice.toLocaleString('en-AU')}
-                  </span>
-                )}
-              </div>
-
-              {selectedPackage.wowFactor && (
-                <div className="modal-wow-banner">
-                  <i className="fi-rr-sparkles" aria-hidden="true" /> {selectedPackage.wowFactor}
-                </div>
-              )}
-
-              <div className="modal-overview-section">
-                <h4 className="modal-overview-heading">Overview & Details</h4>
-                <p className="modal-overview-text">
-                  {selectedPackage.description || selectedPackage.details || `Experience the ultimate journey to ${selectedPackage.destination}. This carefully curated package offers unforgettable sights, premium accommodations, and seamless travel arrangements tailored for explorers.`}
-                </p>
-              </div>
-
-              {similarPackages.length > 0 && (
-                <div className="modal-overview-section">
-                  <h4 className="modal-overview-heading">You Might Also Like</h4>
-                  <div className="saved-packages-grid">
-                    {similarPackages.map((pkg, idx) => {
-                      const imgSrc =
-                        pkg.imageUrl ||
-                        pkg.image ||
-                        'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
-                      const price = pkg.fromPrice ? `$${pkg.fromPrice.toLocaleString('en-AU')}` : null;
-                      const title = pkg.packageName || pkg.title || pkg.name || 'Package';
-
-                      return (
-                        <div
-                          key={idx}
-                          className="saved-card-item"
-                          onClick={() => {
-                            trackPackageClick(pkg);
-                            setSelectedPackage(pkg);
-                          }}
-                        >
-                          <div className="saved-card-img-wrapper">
-                            <img src={imgSrc} alt={title} className="saved-card-img" />
-                            {price && <span className="saved-card-price-tag">From {price}</span>}
-                          </div>
-                          <div className="saved-card-body">
-                            <span className="saved-card-dest">{formatLocationPath(pkg)}</span>
-                            <h4 className="saved-card-title">{title}</h4>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="modal-footer-actions">
-                <button
-                  onClick={() => toggleSavePackage(selectedPackage)}
-                  className={`modal-save-btn ${isPackageSaved ? 'saved' : ''}`}
-                >
-                  <span className="btn-text-default">
-                    <i className={isPackageSaved ? 'fi-br-heart' : 'fi-rr-heart'} aria-hidden="true" /> {isPackageSaved ? 'Saved' : 'Save Package'}
-                  </span>
-                  <span className="btn-text-hover">Remove from saved</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="filter-panel">
-        <div className="explore-heading">
-          <i className="fi-br-map-marker" aria-hidden="true" />
-          <span>Explore destinations</span>
-        </div>
-        <PackageSearch
-          query={searchQuery}
-          onQueryChange={updateSearch}
-          results={matchingPackages}
-          getLocation={searchLocation}
-          onSelect={selectSearchResult}
-          loading={packagesLoading}
-        />
-        <div className="filter-header">Filter Destinations</div>
-        <div className="chip-container">
-          {FILTER_OPTIONS.map((filter) => {
-            const isActive = activeFilters.includes(filter.id);
-            return (
-              <button
-                key={filter.id}
-                onClick={() => toggleFilter(filter.id)}
-                className={`filter-chip ${isActive ? 'active' : ''}`}
-              >
-                <i className={filter.icon} aria-hidden="true" />
-                {filter.label}
-              </button>
-            );
-          })}
-        </div>
-        {/*
-         * Same filtering, shown as a native <select> instead of a chip row
-         * below 768px (phones/iPads) - a row of wrapping pill buttons gets
-         * unwieldy at that width, and <select> is the standard mobile
-         * pattern. Single-choice here rather than the chip row's multi-select,
-         * which is the natural simplification a dropdown pushes toward and
-         * keeps this comfortably one-handed on a phone.
-         */}
-        <select
-          className="filter-select-mobile"
-          aria-label="Filter destinations"
-          value={activeFilters[0] || ''}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (!value) {
-              setActiveFilters([]);
-              return;
-            }
-            if (!activeFilters.includes(value)) trackFilterClick(value);
-            setActiveFilters([value]);
-          }}
-        >
-          <option value="">All Destinations</option>
-          {FILTER_OPTIONS.map((filter) => (
-            <option key={filter.id} value={filter.id}>{filter.label}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="desktop-controls">
-        <button className="desktop-btn" onClick={() => mapInstanceRef.current?.zoomIn()} title="Zoom In"><i className="fi-rr-zoom-in" aria-hidden="true" /></button>
-        <button className="desktop-btn" onClick={() => mapInstanceRef.current?.zoomOut()} title="Zoom Out"><i className="fi-rr-zoom-out" aria-hidden="true" /></button>
-        <button
-          className="reset-btn"
-          onClick={() => {
-            setActiveFilters([]);
-            setSearchQuery('');
-            setSelectedSearchPackage(null);
-            setSelectedPackage(null);
-            if (popupRef.current) popupRef.current.remove();
-            if (cityPopupRef.current) cityPopupRef.current.remove();
-            setActiveCountry(null);
-            mapInstanceRef.current?.flyTo({ center: [0, 20], zoom: 2, duration: 1000 });
-          }}
-          title="Reset View"
-        >
-          Reset
-        </button>
-      </div>
+      <MapControls 
+        onZoomIn={() => mapInstanceRef.current?.zoomIn()} 
+        onZoomOut={() => mapInstanceRef.current?.zoomOut()} 
+        onReset={() => {
+          setActiveFilters([]);
+          setSearchQuery('');
+          setSelectedSearchPackage(null);
+          setSelectedPackage(null);
+          if (popupRef.current) popupRef.current.remove();
+          if (cityPopupRef.current) cityPopupRef.current.remove();
+          setActiveCountry(null);
+          mapInstanceRef.current?.flyTo({ center: [0, 20], zoom: 2, duration: 1000 });
+        }} 
+      />
     </div>
   );
 }
