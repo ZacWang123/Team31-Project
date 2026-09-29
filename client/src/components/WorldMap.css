@@ -1470,9 +1470,12 @@ html, body {
   to { transform: rotate(360deg); }
 }
 
-/* Floating package search */
+/* Floating package search - width tracks .filter-panel's own width
+   (100% of it, not some separate fixed/vw-based number) so it always
+   matches the panel it sits in, including whenever the panel itself
+   gets narrower on smaller screens. */
 .package-search {
-  width: min(420px, calc(100vw - 48px));
+  width: 100%;
   z-index: 30;
   color: #f8fafc;
   font-family: system-ui, -apple-system, sans-serif;
