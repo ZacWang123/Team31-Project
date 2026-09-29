@@ -26,14 +26,14 @@ const WORLD_GEOJSON_URL =
   'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson';
 
 const TAG_RULES = [
-  { id: 'ski', label: 'Ski & Snow', test: /ski|snow/i },
-  { id: 'cruise', label: 'Cruise', test: /cruise|sail/i },
-  { id: 'all-inclusive', label: 'All-Inclusive', test: /all-inclusive/i },
-  { id: 'stopover', label: 'Stopover', test: /stopover/i },
-  { id: 'tour', label: 'Tours & Expeditions', test: /tour|express|explorer|discovery|expedition/i },
+  { id: 'ski', label: 'Ski & Snow', icon: 'fi-rr-snowflake', test: /ski|snow/i },
+  { id: 'cruise', label: 'Cruise', icon: 'fi-rr-ship', test: /cruise|sail/i },
+  { id: 'all-inclusive', label: 'All-Inclusive', icon: 'fi-rr-umbrella-beach', test: /all-inclusive/i },
+  { id: 'stopover', label: 'Stopover', icon: 'fi-rr-route', test: /stopover/i },
+  { id: 'tour', label: 'Tours & Expeditions', icon: 'fi-rr-mountains', test: /tour|express|explorer|discovery|expedition/i },
 ];
 
-const FILTER_OPTIONS = TAG_RULES.map(({ id, label }) => ({ id, label }));
+const FILTER_OPTIONS = TAG_RULES.map(({ id, label, icon }) => ({ id, label, icon }));
 
 const customZoomViews = {
   Australia: { center: [133.7751, -25.2744], zoom: 4.6 },
@@ -723,6 +723,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
         if (!hasCoordinates(dest)) return;
         const el = document.createElement('div');
         el.className = 'country-pin';
+        el.innerHTML = '<i class="fi-br-map-marker" aria-hidden="true"></i>';
 
         el.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -791,7 +792,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
           }
         });
 
-        const marker = new maplibregl.Marker({ element: el })
+        const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
           .setLngLat([dest.lon, dest.lat])
           .addTo(map);
 
@@ -806,6 +807,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
         if (!hasCoordinates({ lat, lon })) return;
         const el = document.createElement('div');
         el.className = 'country-pin';
+        el.innerHTML = '<i class="fi-br-map-marker" aria-hidden="true"></i>';
 
         el.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -817,7 +819,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
           }
         });
 
-        const marker = new maplibregl.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
+        const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([lon, lat]).addTo(map);
         markersRef.current.push({ marker, element: el, destination: { tags, packages: [] } });
       });
 
@@ -883,7 +885,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
       el.setAttribute('tabindex', '0');
       el.setAttribute('aria-label', `${city.name}, ${city.packages.length} packages`);
       el.innerHTML = `
-        <span class="city-pin-marker"></span>
+        <i class="fi-br-map-marker city-pin-marker" aria-hidden="true"></i>
         <span class="city-pin-label">
           <span class="city-pin-name"></span>
           <span class="city-pin-count"></span>
@@ -1136,7 +1138,11 @@ const [receiveDeals, setReceiveDeals] = useState(false);
         </button>
       )}
 
-      <div className="view-profile-btn-container">
+      <div className="top-bar">
+        <div className="top-bar-logo">
+          <i className="fi-br-map-marker" aria-hidden="true" />
+          <span>FLIGHT CENTRE</span>
+        </div>
         <button
           onClick={() => {
             setSelectedPackage(null);
@@ -1405,9 +1411,10 @@ const [receiveDeals, setReceiveDeals] = useState(false);
       )}
 
       <div className="filter-panel">
-        {/* Hidden below 768px (phones/iPads) - redundant once the search
-            bar is just an icon, per the search-icon-label's own tooltip. */}
-        <div className="filter-header filter-header-search">Find your trip</div>
+        <div className="explore-heading">
+          <i className="fi-br-map-marker" aria-hidden="true" />
+          <span>Explore destinations</span>
+        </div>
         <PackageSearch
           query={searchQuery}
           onQueryChange={updateSearch}
@@ -1426,6 +1433,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
                 onClick={() => toggleFilter(filter.id)}
                 className={`filter-chip ${isActive ? 'active' : ''}`}
               >
+                <i className={filter.icon} aria-hidden="true" />
                 {filter.label}
               </button>
             );
