@@ -782,6 +782,11 @@ html, body {
   border: 1px solid #334155;
   border-radius: 12px;
   padding: 16px;
+  /* So max-width (used on small screens to keep clear of the zoom/reset
+     controls) constrains the actual rendered box including padding and
+     border, not just the content area - otherwise the real box ends up
+     wider than the max-width value and can overlap those controls. */
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -823,6 +828,22 @@ html, body {
   background-color: #0284c7;
   border-color: #38bdf8;
   color: #ffffff;
+}
+
+/* Mobile stand-in for .chip-container (a single native <select>, since a
+   wrapping row of pill buttons gets cramped below 768px). Hidden by
+   default, only shown by the max-width: 768px query further down. */
+.filter-select-mobile {
+  display: none;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #475569;
+  background-color: #1e293b;
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .desktop-controls {
@@ -1454,9 +1475,12 @@ html, body {
   to { transform: rotate(360deg); }
 }
 
-/* Floating package search */
+/* Floating package search - width tracks .filter-panel's own width
+   (100% of it, not some separate fixed/vw-based number) so it always
+   matches the panel it sits in, including whenever the panel itself
+   gets narrower on smaller screens. */
 .package-search {
-  width: min(420px, calc(100vw - 48px));
+  width: 100%;
   z-index: 30;
   color: #f8fafc;
   font-family: system-ui, -apple-system, sans-serif;
@@ -1531,8 +1555,79 @@ html, body {
 .city-pin.is-search-match .city-pin-label { border-color: #38bdf8; }
 
 @media (max-width: 600px) {
-  .package-search { top: 76px; left: 12px; width: calc(100vw - 24px); }
+  /* .package-search is never position:absolute (it's a normal flex child
+     of .filter-panel), so the old top/left here never did anything - and
+     its own separate width was silently fighting the "match the panel"
+     rule above it at these widths. Panel width is controlled below via
+     .filter-panel's own max-width instead. */
   .package-search-results { max-height: min(30vh, 220px); }
   .filter-panel { bottom: 12px; left: 12px; max-width: calc(100vw - 96px); min-width: 0; }
   .desktop-controls { bottom: 12px; right: 12px; }
+}
+
+/* Phones + iPad-portrait: same design as desktop (full-width search bar,
+   same panel) just scaled down - no layout change, no collapsing to an
+   icon. "Filter Destinations" still swaps the chip row for a native
+   <select> here since a wrapping row of pill buttons gets cramped at
+   these widths, but the search bar itself stays exactly as it looks on
+   desktop, just smaller. Two tiers (tablet, then phone) so it keeps
+   scaling down as the screen gets smaller instead of jumping straight
+   to the smallest size. */
+@media (max-width: 768px) {
+  .filter-panel {
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .filter-header {
+    font-size: 12px;
+  }
+
+  .package-search-field {
+    min-height: 42px;
+    padding: 0 10px;
+    gap: 6px;
+  }
+
+  .package-search-icon {
+    font-size: 20px;
+  }
+
+  .package-search-input {
+    font-size: 12px;
+  }
+
+  .chip-container {
+    display: none;
+  }
+
+  .filter-select-mobile {
+    display: block;
+    min-height: 38px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .filter-panel {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .filter-header {
+    font-size: 11px;
+  }
+
+  .package-search-field {
+    min-height: 38px;
+    padding: 0 8px;
+  }
+
+  .package-search-icon {
+    font-size: 18px;
+  }
+
+  .filter-select-mobile {
+    min-height: 34px;
+  }
 }
