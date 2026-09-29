@@ -44,7 +44,13 @@ export default function PackageSearch({ query, onQueryChange, results, onSelect,
   return (
     <div className="package-search" ref={rootRef}>
       <div className="package-search-field">
-        <span aria-hidden="true" className="package-search-icon">⌕</span>
+        {/* A <label> (not a bare span) so tapping the icon focuses the input
+            even on small screens where the input collapses to ~0 width -
+            native label-click-focuses-its-input behavior, no extra JS state
+            needed to expand/collapse the search bar. */}
+        <label htmlFor="package-search-input" aria-hidden="true" className="package-search-icon-label">
+          <span className="package-search-icon">⌕</span>
+        </label>
         <input
           id="package-search-input"
           className="package-search-input"

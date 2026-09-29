@@ -1357,7 +1357,9 @@ const [receiveDeals, setReceiveDeals] = useState(false);
       )}
 
       <div className="filter-panel">
-        <div className="filter-header">Find your trip</div>
+        {/* Hidden below 768px (phones/iPads) - redundant once the search
+            bar is just an icon, per the search-icon-label's own tooltip. */}
+        <div className="filter-header filter-header-search">Find your trip</div>
         <PackageSearch
           query={searchQuery}
           onQueryChange={updateSearch}
@@ -1381,6 +1383,33 @@ const [receiveDeals, setReceiveDeals] = useState(false);
             );
           })}
         </div>
+        {/*
+         * Same filtering, shown as a native <select> instead of a chip row
+         * below 768px (phones/iPads) - a row of wrapping pill buttons gets
+         * unwieldy at that width, and <select> is the standard mobile
+         * pattern. Single-choice here rather than the chip row's multi-select,
+         * which is the natural simplification a dropdown pushes toward and
+         * keeps this comfortably one-handed on a phone.
+         */}
+        <select
+          className="filter-select-mobile"
+          aria-label="Filter destinations"
+          value={activeFilters[0] || ''}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (!value) {
+              setActiveFilters([]);
+              return;
+            }
+            if (!activeFilters.includes(value)) trackFilterClick(value);
+            setActiveFilters([value]);
+          }}
+        >
+          <option value="">All Destinations</option>
+          {FILTER_OPTIONS.map((filter) => (
+            <option key={filter.id} value={filter.id}>{filter.label}</option>
+          ))}
+        </select>
       </div>
 
       <div className="desktop-controls">
