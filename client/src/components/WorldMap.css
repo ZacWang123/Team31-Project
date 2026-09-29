@@ -1555,7 +1555,11 @@ html, body {
 .city-pin.is-search-match .city-pin-label { border-color: #38bdf8; }
 
 @media (max-width: 600px) {
-  .package-search { top: 76px; left: 12px; width: calc(100vw - 24px); }
+  /* .package-search is never position:absolute (it's a normal flex child
+     of .filter-panel), so the old top/left here never did anything - and
+     its own separate width was silently fighting the "match the panel"
+     rule above it at these widths. Panel width is controlled below via
+     .filter-panel's own max-width instead. */
   .package-search-results { max-height: min(30vh, 220px); }
   .filter-panel { bottom: 12px; left: 12px; max-width: calc(100vw - 96px); min-width: 0; }
   .desktop-controls { bottom: 12px; right: 12px; }
