@@ -454,6 +454,29 @@ const [receiveDeals, setReceiveDeals] = useState(false);
 
   const destinations = useMemo(() => buildDestinations(packagesData), [packagesData]);
   const cityIndex = useMemo(() => buildCityIndex(), []);
+
+  /*
+   * A country like France only shows up here via Paris in cityPackages.json
+   * - it has no entry in the live database, so it never got a world-view
+   * red pin, even though clicking the bare landmass already worked (the
+   * country-click-layer handler below keys off cityIndex, not destinations).
+   * Without a pin there though, nobody knows to click there. One synthetic
+   * pin per such country, positioned at its most-packaged city, fixes the
+   * discoverability gap without duplicating a destination pin for
+   * countries that already have one.
+   */
+  const countryOnlyPins = useMemo(() => {
+    const coveredIso3 = new Set(destinations.map((d) => d.iso3).filter(Boolean));
+    return Object.entries(cityIndex)
+      .filter(([iso3]) => !coveredIso3.has(iso3))
+      .map(([iso3, cities]) => {
+        const tagSet = new Set();
+        cities.forEach((c) => c.tags.forEach((t) => tagSet.add(t)));
+        return { iso3, cities, lat: cities[0].lat, lon: cities[0].lon, tags: Array.from(tagSet) };
+      })
+      .filter((entry) => hasCoordinates(entry));
+  }, [destinations, cityIndex]);
+
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
   const matchingPackages = useMemo(() =>
     [...packagesData, ...cityPackagesData].filter((pkg) => matchesPackage(pkg, normalizedSearch, activeFilters)),
@@ -775,6 +798,29 @@ const [receiveDeals, setReceiveDeals] = useState(false);
         markersRef.current.push({ marker, element: el, destination: dest });
       });
 
+      // Country-only pins (see countryOnlyPins above) - same look as a
+      // destination pin, but clicking one just zooms into that country's
+      // cities rather than opening a destination popup, since there's no
+      // destination-level package behind it, only city-level ones.
+      countryOnlyPins.forEach(({ cities, lat, lon, tags }) => {
+        if (!hasCoordinates({ lat, lon })) return;
+        const el = document.createElement('div');
+        el.className = 'country-pin';
+
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (popupRef.current) popupRef.current.remove();
+
+          const bounds = boundsForCities(cities);
+          if (bounds) {
+            map.fitBounds(bounds, { padding: 90, maxZoom: 7, duration: 1200, essential: true });
+          }
+        });
+
+        const marker = new maplibregl.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
+        markersRef.current.push({ marker, element: el, destination: { tags, packages: [] } });
+      });
+
       setMapLoaded(true);
     });
 
@@ -790,7 +836,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
         mapInstanceRef.current = null;
       }
     };
-  }, [destinations, packagesLoading]);
+  }, [destinations, packagesLoading, countryOnlyPins]);
 
   /* ----------------------------------------------------------------------
      FCIPT3-10: city pins
