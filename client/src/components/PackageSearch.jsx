@@ -61,7 +61,7 @@ export default function PackageSearch({ query, onQueryChange, results, onSelect,
           aria-controls="package-search-results"
           aria-expanded={Boolean(showList)}
           aria-activedescendant={showList && activeIndex >= 0 ? `package-search-option-${activeIndex}` : undefined}
-          placeholder="Search packages, cities, destinations or countries"
+          placeholder="Search here"
           value={query}
           onFocus={() => setOpen(true)}
           onChange={(event) => {
