@@ -1567,23 +1567,44 @@ html, body {
     align-self: flex-start;
   }
 
+  /* Sized to the full 44px tap target (not just the icon glyph inside
+     it) - otherwise only the small icon itself is clickable even though
+     the whole button-sized area looks tappable. */
   .package-search-icon-label {
     flex-shrink: 0;
+    width: 44px;
+    height: 44px;
     display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
+  /* Collapsed: no card of its own, just the bare icon sitting in the
+     panel like plain text - the boxed/shadowed look from the base rule
+     only reads right once it's expanded to a full search bar below.
+     Width stays 44px (not shrunk to the icon's own size) to match this
+     project's existing 44px minimum touch target convention (see the
+     .city-pin comment above). */
   .package-search-field {
     width: 44px;
+    min-height: 44px;
     padding: 0;
     justify-content: center;
     overflow: hidden;
-    transition: width 0.2s ease;
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    transition: width 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
   }
 
   .package-search-field:focus-within {
     width: min(280px, calc(100vw - 80px));
+    min-height: 44px;
     padding: 0 12px;
     justify-content: flex-start;
+    background: rgba(15, 23, 42, 0.95);
+    border-color: #38bdf8;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   }
 
   /* Fully icon-only when collapsed - without this, the input's own text
