@@ -6,6 +6,12 @@ import PackageSearch from './PackageSearch';
 import { useTravelProfile } from '../context/TravelProfileContext';
 import './WorldMap.css';
 import { generateConsultantReport } from '../utils/ProfileExport';
+import MapControls from './MapControls';
+import FilterPanel from './FilterPanel';
+import PackageDetailModal from './PackageDetailModal';
+import TravelProfileModal from './TravelProfileModal';
+import { getSimilarPackages } from '../utils/packageRecommendations';
+import { arePackagesSame, getPkgKey, getPackageTags } from '../utils/packageUtils';
 
 // FCIPT3-25: packages now come from the live database (synced from Flight
 // Centre's Google Sheet) instead of the bundled packages.json. City-level
@@ -42,20 +48,6 @@ const customZoomViews = {
   'New Zealand': { center: [174.886, -40.9006], zoom: 4.6 },
 };
 
-const arePackagesSame = (pkgA, pkgB) => {
-  if (!pkgA || !pkgB) return false;
-  const idA = typeof pkgA === 'string' ? pkgA : (pkgA.id || pkgA.packageName || pkgA.title);
-  const idB = typeof pkgB === 'string' ? pkgB : (pkgB.id || pkgB.packageName || pkgB.title);
-  if (!idA || !idB) return false;
-  return String(idA).trim() === String(idB).trim();
-};
-
-const getPkgKey = (pkg) => {
-  if (!pkg) return '';
-  if (typeof pkg === 'string') return pkg.trim();
-  return String(pkg.id || pkg.packageName || pkg.title || '').trim();
-};
-
 // Country/city/place, extracted from Flight Centre's own supplier image
 // paths and package titles (not guessed) - see server/src/services/
 // transform.js, which enriches each row on sync from the live database.
@@ -68,19 +60,6 @@ function formatLocationPath(pkg) {
   if (pkg.city && pkg.city !== pkg.country) parts.push(pkg.city);
   if (pkg.place) parts.push(pkg.place);
   return parts.length > 0 ? parts.join(' › ') : (pkg.destination || '');
-}
-
-function getPackageTags(pkg) {
-  const tags = [];
-  const title = pkg.packageName || pkg.title || pkg.name || '';
-  const haystack = `${title} ${pkg.wowFactor || ''} ${pkg.destination || ''}`;
-  TAG_RULES.forEach(({ id }) => {
-    const rule = TAG_RULES.find((r) => r.id === id);
-    if (rule && rule.test.test(haystack)) {
-      tags.push(id);
-    }
-  });
-  return tags;
 }
 
 function hasCoordinates(pkg) {
@@ -510,8 +489,18 @@ const [receiveDeals, setReceiveDeals] = useState(false);
       .filter(Boolean);
   }, [savedPackages]);
 
-  const handleSaveProfile = async (e) => {
-    e.preventDefault();
+  const handleSaveProfile = async (profileData) => {
+    console.log('Saving profile data:', profileData);
+
+    const {
+      name: profileName,
+      email: profileEmail,
+      phone: profilePhone,
+      sendToSelf,
+      sendToStore,
+      saveProfileLocal,
+      receiveDeals,
+    } = profileData;
 
     if (sendToSelf && !profileEmail) {
       alert("Please enter an email address.");
@@ -523,6 +512,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
         name: profileName,
         email: profileEmail,
         phone: profilePhone,
+        receiveDeals,
       },
       savedPackages,
       viewedPackages,
@@ -530,8 +520,11 @@ const [receiveDeals, setReceiveDeals] = useState(false);
       timestamp: new Date().toISOString(),
     };
 
+    if (saveProfileLocal) {
+      localStorage.setItem('user_travel_profile', JSON.stringify(payload));
+    }
+
     try {
-      // 1. Send to Customer
       if (sendToSelf) {
         await fetch(`${API_BASE_URL}/api/send-profile`, {
           method: 'POST',
@@ -544,7 +537,6 @@ const [receiveDeals, setReceiveDeals] = useState(false);
         });
       }
 
-      // 2. Send to Store
       if (sendToStore) {
         await fetch(`${API_BASE_URL}/api/send-profile`, {
           method: 'POST',
@@ -557,7 +549,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
         });
       }
 
-      alert("Real email sent successfully!");
+      alert("Email sent successfully!");
       setIsProfileOpen(false);
     } catch (err) {
       console.error("Failed to send email:", err);
@@ -567,11 +559,6 @@ const [receiveDeals, setReceiveDeals] = useState(false);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
-    // Wait for the live database fetch before building the map - this
-    // effect depends on [destinations] further down and rebuilds the whole
-    // map (layers, click handlers, markers) whenever it changes. Starting
-    // it before packages have loaded would build an empty map, then
-    // immediately tear it down and rebuild it once real data arrives.
     if (packagesLoading) return;
 
     const map = new maplibregl.Map({
@@ -1027,37 +1014,36 @@ const [receiveDeals, setReceiveDeals] = useState(false);
   // filter tag (ski/cruise/all-inclusive/stopover/tour), highest score first,
   // capped at 4 so the modal doesn't grow unbounded on well-tagged packages.
   const similarPackages = useMemo(() => {
-    if (!selectedPackage) return [];
-    const currentTags = getPackageTags(selectedPackage);
-    const safeData = Array.isArray(packagesData) ? packagesData : [];
-
-    // No score-floor filter here on purpose: a package with no shared
-    // destination/tags (e.g. UK's only package, which doesn't match any of
-    // the Ski/Cruise/All-Inclusive/Stopover/Tour keywords) would otherwise
-    // score 0 against everything and the section would just vanish - which
-    // reads as broken, not as "nothing relevant". Real matches (score > 0)
-    // still always sort ahead of these fallback ones.
-    const scored = safeData
-      .filter((pkg) => pkg && !arePackagesSame(pkg, selectedPackage))
-      .map((pkg) => {
-        const sameDestination = pkg.destination === selectedPackage.destination;
-        const sharedTagCount = getPackageTags(pkg).filter((t) => currentTags.includes(t)).length;
-        const score = (sameDestination ? 10 : 0) + sharedTagCount;
-        return { pkg, score };
-      })
-      .sort((a, b) => b.score - a.score);
-
-    const seen = new Set();
-    const result = [];
-    for (const { pkg } of scored) {
-      const key = getPkgKey(pkg);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      result.push(pkg);
-      if (result.length >= 4) break;
-    }
-    return result;
+    const allPackages = packagesData || cityPackagesData || [];
+    return getSimilarPackages(selectedPackage, allPackages, 4);
   }, [selectedPackage, packagesData]);
+
+  const handleResetMap = () => {
+    // Clear active filters if the state setter exists
+    if (typeof setActiveFilters === 'function') {
+      setActiveFilters([]);
+    }
+
+    // Clear package selections if state setters exist
+    if (typeof setSelectedSearchPackage === 'function') setSelectedSearchPackage(null);
+    if (typeof setSelectedPackage === 'function') setSelectedPackage(null);
+
+    // Close open popups
+    if (popupRef.current) popupRef.current.remove();
+    if (cityPopupRef.current) cityPopupRef.current.remove();
+
+    // Reset country view and camera
+    if (typeof setActiveCountry === 'function') setActiveCountry(null);
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo({ center: [0, 20], zoom: 2, duration: 1000 });
+    }
+  };
+
+  const handleBackToWorld = () => {
+    if (cityPopupRef.current) cityPopupRef.current.remove();
+    if (typeof setActiveCountry === 'function') setActiveCountry(null);
+    mapInstanceRef.current?.flyTo({ center: [0, 20], zoom: 2, duration: 1000 });
+  };
 
   return (
     <div className="world-map-layout">
@@ -1076,19 +1062,13 @@ const [receiveDeals, setReceiveDeals] = useState(false);
         </div>
       )}
 
-      {activeCountry && (
-        <button
-          className="back-to-world-btn"
-          onClick={() => {
-            if (cityPopupRef.current) cityPopupRef.current.remove();
-            setActiveCountry(null);
-            mapInstanceRef.current?.flyTo({ center: [0, 20], zoom: 2, duration: 1000 });
-          }}
-        >
-          <span>&larr;</span>
-          <span>Back to world view</span>
-        </button>
-      )}
+      <MapControls
+        activeCountry={activeCountry}
+        onBackToWorld={handleBackToWorld}
+        onZoomIn={() => mapInstanceRef.current?.zoomIn()}
+        onZoomOut={() => mapInstanceRef.current?.zoomOut()}
+        onReset={handleResetMap}
+      />
 
       <div className="view-profile-btn-container">
         <button
@@ -1103,306 +1083,43 @@ const [receiveDeals, setReceiveDeals] = useState(false);
         </button>
       </div>
 
-    {isProfileOpen && (
-      <div className="modal-backdrop-profile" onClick={() => setIsProfileOpen(false)}>
-        <div className="modal-content-box profile-modal-wide" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-header-container flight-centre-red-header">
-            <div className="profile-brand-title">
-              <span className="fc-logo-text">FLIGHT CENTRE</span>
-              <span className="fc-sub-title">TRAVEL GROUP</span>
-              <h2>Travel Profile</h2>
-            </div>
-            <button className="modal-close-btn" onClick={() => setIsProfileOpen(false)}>✕</button>
-          </div>
+    <TravelProfileModal
+      isOpen={isProfileOpen}
+      onClose={() => setIsProfileOpen(false)}
+      viewedPackages={viewedPackages}
+      savedPackages={savedPackages}
+      topSavedFilters={topSavedFilters}
+      filterOptions={FILTER_OPTIONS}
+      formatLocationPath={formatLocationPath}
+      toggleSavePackage={toggleSavePackage}
+      onSaveProfile={handleSaveProfile}
+      nominatedStoreEmail={NOMINATED_STORE_EMAIL}
+    />
 
-          <div className="modal-body-container three-column-layout">
-            {/* COLUMN 1: Preferences, Recently Viewed & Activities */}
-            <div className="profile-col-left">
-              <div className="profile-section-block">
-                <div className="profile-section-header">Your Travel Preferences <span>▼</span></div>
-                <div className="profile-section-content">
-                  <p>Climate: <span className="placeholder-text">Not specified</span></p>
-                  <p>Price Range: <span className="placeholder-text">Not specified</span></p>
-                  <p>Travel Style: <span className="placeholder-text">Not specified</span></p>
-                </div>
-              </div>
+      <PackageDetailModal
+        selectedPackage={selectedPackage}
+        onClose={() => setSelectedPackage(null)}
+        formatLocationPath={formatLocationPath}
+        selectedPkgTitle={selectedPkgTitle}
+        similarPackages={similarPackages}
+        trackPackageClick={trackPackageClick}
+        onSelectPackage={setSelectedPackage}
+        toggleSavePackage={toggleSavePackage}
+        isPackageSaved={isPackageSaved}
+      />
 
-              <div className="profile-section-block">
-                <div className="profile-section-header">Your Recently Viewed <span>▼</span></div>
-                <div className="profile-section-content">
-                  {viewedPackages.slice(0, 3).map((pkg, i) => (
-                    <div key={i} className="mini-list-item">{pkg.packageName || pkg.title}</div>
-                  ))}
-                  {viewedPackages.length === 0 && <p className="placeholder-text">No recently viewed packages</p>}
-                </div>
-              </div>
-
-              <div className="profile-section-block">
-                <div className="profile-section-header">Your Favourite Activities <span>▼</span></div>
-                <div className="profile-section-content">
-                  {topSavedFilters.length > 0 ? (
-                    topSavedFilters.map((tagId) => {
-                      const filterObj = FILTER_OPTIONS.find((f) => f.id === tagId);
-                      return <div key={tagId} className="mini-list-item">{filterObj ? filterObj.label : tagId}</div>;
-                    })
-                  ) : (
-                    <p className="placeholder-text">Save packages to see favourite activities</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* COLUMN 2: Destination Shortlist */}
-            <div className="profile-col-middle">
-              <h3>Your Destination Shortlist</h3>
-              <div className="shortlist-scroll-area">
-                {savedPackages.length === 0 ? (
-                  <p className="empty-shortlist">Your shortlist is empty. Save packages from the map to see them here.</p>
-                ) : (
-                  savedPackages.map((pkg, idx) => {
-                    const imgSrc = pkg.imageUrl || pkg.image || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
-                    const pkgTitle = pkg.packageName || pkg.title || pkg.name || 'Package';
-                    return (
-                      <div key={idx} className="shortlist-card">
-                        <img src={imgSrc} alt={pkgTitle} className="shortlist-img" />
-                        <div className="shortlist-info">
-                          <span className="shortlist-dest-label">{formatLocationPath(pkg)}</span>
-                          <h4>{pkgTitle}</h4>
-                        </div>
-                        <button 
-                          className="shortlist-remove-btn" 
-                          onClick={() => toggleSavePackage(pkg)}
-                          title="Remove package"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* COLUMN 3: Save Your Profile Form */}
-            {/* COLUMN 3: Save Your Profile Form */}
-            <div className="profile-col-right">
-              <h3>Save Your Profile</h3>
-              <p className="save-form-instruction">
-                Enter your details below to receive a copy of your travel profile or connect with a Flight Centre travel expert.
-              </p>
-
-              <form onSubmit={handleSaveProfile}>
-                <input 
-                  type="text" 
-                  placeholder="Full Name *" 
-                  className="profile-form-input" 
-                  value={profileName}
-                  onChange={(e) => setProfileName(e.target.value)}
-                  required 
-                />
-
-                <input 
-                  type="email" 
-                  placeholder="Email Address (Required to send copy)..." 
-                  className="profile-form-input" 
-                  value={profileEmail}
-                  onChange={(e) => setProfileEmail(e.target.value)}
-                  required={sendToSelf}
-                />
-
-                <div className="form-separator">OR</div>
-
-                <input 
-                  type="tel" 
-                  placeholder="Mobile Number..." 
-                  className="profile-form-input" 
-                  value={profilePhone}
-                  onChange={(e) => setProfilePhone(e.target.value)}
-                />
-
-                <div className="profile-checkbox-group">
-                  <label>
-                    <input 
-                      type="checkbox" 
-                      checked={sendToSelf} 
-                      onChange={(e) => setSendToSelf(e.target.checked)} 
-                    /> 
-                    Send a copy to my email
-                  </label>
-
-                  <label>
-                    <input 
-                      type="checkbox" 
-                      checked={sendToStore} 
-                      onChange={(e) => setSendToStore(e.target.checked)} 
-                    /> 
-                    Send my profile to Flight Centre Store ({NOMINATED_STORE_EMAIL})
-                  </label>
-
-                  <label>
-                    <input 
-                      type="checkbox" 
-                      checked={saveProfileLocal} 
-                      onChange={(e) => setSaveProfileLocal(e.target.checked)} 
-                    /> 
-                    Save my personalised travel profile locally
-                  </label>
-
-                  <label>
-                    <input 
-                      type="checkbox" 
-                      checked={receiveDeals} 
-                      onChange={(e) => setReceiveDeals(e.target.checked)} 
-                    /> 
-                    Send me personalised travel deals
-                  </label>
-                </div>
-
-                <button type="submit" className="finish-session-btn">
-                  Finish & Submit Profile
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
-
-      {selectedPackage && (
-        <div className="modal-backdrop-package" onClick={() => setSelectedPackage(null)}>
-          <div className="modal-content-box" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header-container">
-              <div>
-                <span className="modal-package-dest">{formatLocationPath(selectedPackage)}</span>
-                <h2 className="modal-package-title">{selectedPkgTitle}</h2>
-              </div>
-              <button className="modal-close-btn" onClick={() => setSelectedPackage(null)}>✕</button>
-            </div>
-
-            <div className="modal-body-container">
-              <div className="modal-hero-wrapper">
-                <img
-                  src={selectedPackage.imageUrl || selectedPackage.image || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80'}
-                  alt={selectedPkgTitle}
-                  className="modal-hero-img"
-                />
-                {selectedPackage.fromPrice && (
-                  <span className="modal-hero-price">
-                    From ${selectedPackage.fromPrice.toLocaleString('en-AU')}
-                  </span>
-                )}
-              </div>
-
-              {selectedPackage.wowFactor && (
-                <div className="modal-wow-banner">
-                  ✨ {selectedPackage.wowFactor}
-                </div>
-              )}
-
-              <div className="modal-overview-section">
-                <h4 className="modal-overview-heading">Overview & Details</h4>
-                <p className="modal-overview-text">
-                  {selectedPackage.description || selectedPackage.details || `Experience the ultimate journey to ${selectedPackage.destination}. This carefully curated package offers unforgettable sights, premium accommodations, and seamless travel arrangements tailored for explorers.`}
-                </p>
-              </div>
-
-              {similarPackages.length > 0 && (
-                <div className="modal-overview-section">
-                  <h4 className="modal-overview-heading">You Might Also Like</h4>
-                  <div className="saved-packages-grid">
-                    {similarPackages.map((pkg, idx) => {
-                      const imgSrc =
-                        pkg.imageUrl ||
-                        pkg.image ||
-                        'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
-                      const price = pkg.fromPrice ? `$${pkg.fromPrice.toLocaleString('en-AU')}` : null;
-                      const title = pkg.packageName || pkg.title || pkg.name || 'Package';
-
-                      return (
-                        <div
-                          key={idx}
-                          className="saved-card-item"
-                          onClick={() => {
-                            trackPackageClick(pkg);
-                            setSelectedPackage(pkg);
-                          }}
-                        >
-                          <div className="saved-card-img-wrapper">
-                            <img src={imgSrc} alt={title} className="saved-card-img" />
-                            {price && <span className="saved-card-price-tag">From {price}</span>}
-                          </div>
-                          <div className="saved-card-body">
-                            <span className="saved-card-dest">{formatLocationPath(pkg)}</span>
-                            <h4 className="saved-card-title">{title}</h4>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="modal-footer-actions">
-                <button
-                  onClick={() => toggleSavePackage(selectedPackage)}
-                  className={`modal-save-btn ${isPackageSaved ? 'saved' : ''}`}
-                >
-                  <span className="btn-text-default">{isPackageSaved ? '❤️ Saved' : '🤍 Save Package'}</span>
-                  <span className="btn-text-hover">Remove from saved</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="filter-panel">
-        <div className="filter-header">Find your trip</div>
-        <PackageSearch
-          query={searchQuery}
-          onQueryChange={updateSearch}
-          results={matchingPackages}
-          getLocation={searchLocation}
-          onSelect={selectSearchResult}
-          loading={packagesLoading}
-        />
-        <div className="filter-header">Filter Destinations</div>
-        <div className="chip-container">
-          {FILTER_OPTIONS.map((filter) => {
-            const isActive = activeFilters.includes(filter.id);
-            return (
-              <button
-                key={filter.id}
-                onClick={() => toggleFilter(filter.id)}
-                className={`filter-chip ${isActive ? 'active' : ''}`}
-              >
-                {filter.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="desktop-controls">
-        <button className="desktop-btn" onClick={() => mapInstanceRef.current?.zoomIn()} title="Zoom In">+</button>
-        <button className="desktop-btn" onClick={() => mapInstanceRef.current?.zoomOut()} title="Zoom Out">−</button>
-        <button
-          className="reset-btn"
-          onClick={() => {
-            setActiveFilters([]);
-            setSearchQuery('');
-            setSelectedSearchPackage(null);
-            setSelectedPackage(null);
-            if (popupRef.current) popupRef.current.remove();
-            if (cityPopupRef.current) cityPopupRef.current.remove();
-            setActiveCountry(null);
-            mapInstanceRef.current?.flyTo({ center: [0, 20], zoom: 2, duration: 1000 });
-          }}
-          title="Reset View"
-        >
-          Reset
-        </button>
-      </div>
+      <FilterPanel
+        searchQuery={searchQuery}
+        onQueryChange={updateSearch}
+        matchingPackages={matchingPackages}
+        searchLocation={searchLocation}
+        onSelectSearchResult={selectSearchResult}
+        packagesLoading={packagesLoading}
+        filterOptions={FILTER_OPTIONS}
+        activeFilters={activeFilters}
+        onToggleFilter={toggleFilter}
+      />
     </div>
   );
 }
+ 
