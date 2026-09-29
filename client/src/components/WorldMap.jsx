@@ -267,7 +267,7 @@ function buildCityPopupHTML(city, savedPackages = [], expanded = false) {
             <img src="${imgSrc}" alt="${title}" class="thumbnail-img" />
             ${price ? `<span class="price-tag">From ${price}</span>` : ''}
             <button class="save-package-btn ${isSaved ? 'saved' : ''}" data-index="${index}" data-pkg-key="${pkgKey}">
-              <span class="btn-text-default">${isSaved ? '❤️ Saved' : '🤍 Save'}</span>
+              <span class="btn-text-default"><i class="${isSaved ? 'fi-br-heart' : 'fi-rr-heart'}"></i> ${isSaved ? 'Saved' : 'Save'}</span>
               <span class="btn-text-hover">Remove from saved</span>
             </button>
           </div>
@@ -332,7 +332,7 @@ function buildPopupHTML(dest, savedPackages = []) {
             <img src="${imgSrc}" alt="${title}" class="thumbnail-img" />
             ${price ? `<span class="price-tag">From ${price}</span>` : ''}
             <button class="save-package-btn ${isSaved ? 'saved' : ''}" data-index="${index}" data-pkg-key="${pkgKey}">
-              <span class="btn-text-default">${isSaved ? '❤️ Saved' : '🤍 Save'}</span>
+              <span class="btn-text-default"><i class="${isSaved ? 'fi-br-heart' : 'fi-rr-heart'}"></i> ${isSaved ? 'Saved' : 'Save'}</span>
               <span class="btn-text-hover">Remove from saved</span>
             </button>
           </div>
@@ -1085,7 +1085,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
             mapInstanceRef.current?.flyTo({ center: [0, 20], zoom: 2, duration: 1000 });
           }}
         >
-          <span>&larr;</span>
+          <i className="fi-rr-arrow-left" aria-hidden="true" />
           <span>Back to world view</span>
         </button>
       )}
@@ -1099,7 +1099,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
           className="view-profile-btn"
         >
           <span>View Travel Profile</span>
-          <span className="profile-icon">👤</span>
+          <i className="fi-rr-user profile-icon" aria-hidden="true" />
         </button>
       </div>
 
@@ -1112,7 +1112,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
               <span className="fc-sub-title">TRAVEL GROUP</span>
               <h2>Travel Profile</h2>
             </div>
-            <button className="modal-close-btn" onClick={() => setIsProfileOpen(false)}>✕</button>
+            <button className="modal-close-btn" onClick={() => setIsProfileOpen(false)}><i className="fi-rr-cross" aria-hidden="true" /></button>
           </div>
 
           <div className="modal-body-container three-column-layout">
@@ -1174,7 +1174,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
                           onClick={() => toggleSavePackage(pkg)}
                           title="Remove package"
                         >
-                          ✕
+                          <i className="fi-rr-cross-small" aria-hidden="true" />
                         </button>
                       </div>
                     );
@@ -1276,7 +1276,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
                 <span className="modal-package-dest">{formatLocationPath(selectedPackage)}</span>
                 <h2 className="modal-package-title">{selectedPkgTitle}</h2>
               </div>
-              <button className="modal-close-btn" onClick={() => setSelectedPackage(null)}>✕</button>
+              <button className="modal-close-btn" onClick={() => setSelectedPackage(null)}><i className="fi-rr-cross" aria-hidden="true" /></button>
             </div>
 
             <div className="modal-body-container">
@@ -1295,7 +1295,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
 
               {selectedPackage.wowFactor && (
                 <div className="modal-wow-banner">
-                  ✨ {selectedPackage.wowFactor}
+                  <i className="fi-rr-sparkles" aria-hidden="true" /> {selectedPackage.wowFactor}
                 </div>
               )}
 
@@ -1347,7 +1347,9 @@ const [receiveDeals, setReceiveDeals] = useState(false);
                   onClick={() => toggleSavePackage(selectedPackage)}
                   className={`modal-save-btn ${isPackageSaved ? 'saved' : ''}`}
                 >
-                  <span className="btn-text-default">{isPackageSaved ? '❤️ Saved' : '🤍 Save Package'}</span>
+                  <span className="btn-text-default">
+                    <i className={isPackageSaved ? 'fi-br-heart' : 'fi-rr-heart'} aria-hidden="true" /> {isPackageSaved ? 'Saved' : 'Save Package'}
+                  </span>
                   <span className="btn-text-hover">Remove from saved</span>
                 </button>
               </div>
@@ -1384,8 +1386,8 @@ const [receiveDeals, setReceiveDeals] = useState(false);
       </div>
 
       <div className="desktop-controls">
-        <button className="desktop-btn" onClick={() => mapInstanceRef.current?.zoomIn()} title="Zoom In">+</button>
-        <button className="desktop-btn" onClick={() => mapInstanceRef.current?.zoomOut()} title="Zoom Out">−</button>
+        <button className="desktop-btn" onClick={() => mapInstanceRef.current?.zoomIn()} title="Zoom In"><i className="fi-rr-zoom-in" aria-hidden="true" /></button>
+        <button className="desktop-btn" onClick={() => mapInstanceRef.current?.zoomOut()} title="Zoom Out"><i className="fi-rr-zoom-out" aria-hidden="true" /></button>
         <button
           className="reset-btn"
           onClick={() => {

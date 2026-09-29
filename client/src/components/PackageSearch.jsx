@@ -44,7 +44,7 @@ export default function PackageSearch({ query, onQueryChange, results, onSelect,
   return (
     <div className="package-search" ref={rootRef}>
       <div className="package-search-field">
-        <span aria-hidden="true" className="package-search-icon">⌕</span>
+        <i aria-hidden="true" className="fi-rr-search package-search-icon" />
         <input
           id="package-search-input"
           className="package-search-input"
@@ -70,7 +70,7 @@ export default function PackageSearch({ query, onQueryChange, results, onSelect,
           setActiveIndex(-1);
           setOpen(false);
           rootRef.current?.querySelector('input')?.focus();
-        }}>×</button>}
+        }}><i className="fi-rr-cross-small" aria-hidden="true" /></button>}
       </div>
       {showList && (
         <div id="package-search-results" className="package-search-results" role="listbox" aria-label="Package search results">
