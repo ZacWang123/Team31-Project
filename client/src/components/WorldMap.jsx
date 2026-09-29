@@ -5,6 +5,7 @@ import cityPackagesData from '../data/cityPackages.json';
 import PackageSearch from './PackageSearch';
 import { useTravelProfile } from '../context/TravelProfileContext';
 import './WorldMap.css';
+import './PackagePopupTheme.css';
 import { generateConsultantReport } from '../utils/ProfileExport';
 
 // FCIPT3-25: packages now come from the live database (synced from Flight
