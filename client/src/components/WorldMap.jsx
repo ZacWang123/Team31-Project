@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import cityPackagesData from '../data/cityPackages.json';
+import PackageSearch from './PackageSearch';
 import { useTravelProfile } from '../context/TravelProfileContext';
 import './WorldMap.css';
 import { generateConsultantReport } from '../utils/ProfileExport';
@@ -82,6 +83,35 @@ function getPackageTags(pkg) {
   return tags;
 }
 
+function hasCoordinates(pkg) {
+  const lat = Number(pkg?.lat);
+  const lon = Number(pkg?.lon);
+  return pkg?.lat != null && pkg?.lon != null && Number.isFinite(lat) && Number.isFinite(lon)
+    && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 && !(lat === 0 && lon === 0);
+}
+
+const countryNames = new Intl.DisplayNames(['en'], { type: 'region' });
+function packageCountry(pkg) {
+  if (pkg.country) return pkg.country;
+  try {
+    return pkg.iso2 ? countryNames.of(String(pkg.iso2).toUpperCase()) : '';
+  } catch {
+    return '';
+  }
+}
+
+function searchLocation(pkg) {
+  return [pkg.city, pkg.destination, packageCountry(pkg)]
+    .filter((part, index, parts) => part && parts.indexOf(part) === index).join(' · ');
+}
+
+function matchesPackage(pkg, query, filters) {
+  const matchesFilter = !filters.length || filters.some((filter) => getPackageTags(pkg).includes(filter));
+  const text = [pkg.packageName, pkg.title, pkg.name, pkg.city, pkg.destination, packageCountry(pkg)]
+    .filter(Boolean).join(' ').toLocaleLowerCase();
+  return matchesFilter && (!query || text.includes(query));
+}
+
 function buildDestinations(packagesData) {
   const byDestination = new Map();
   const safeData = Array.isArray(packagesData) ? packagesData : [];
@@ -101,6 +131,10 @@ function buildDestinations(packagesData) {
     }
     const entry = byDestination.get(pkg.destination);
     entry.packages.push(pkg);
+    if (!hasCoordinates(entry) && hasCoordinates(pkg)) {
+      entry.lat = Number(pkg.lat);
+      entry.lon = Number(pkg.lon);
+    }
 
     const tags = getPackageTags(pkg);
     tags.forEach((t) => entry.tags.add(t));
@@ -143,6 +177,10 @@ function buildCityIndex() {
 
     const entry = cities.get(pkg.city);
     entry.packages.push(pkg);
+    if (!hasCoordinates(entry) && hasCoordinates(pkg)) {
+      entry.lat = Number(pkg.lat);
+      entry.lon = Number(pkg.lon);
+    }
     getPackageTags(pkg).forEach((t) => entry.tags.add(t));
   });
 
@@ -346,6 +384,8 @@ export default function WorldMap() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [activeProfileTab, setActiveProfileTab] = useState('saved');
   const [selectedPackage, setSelectedPackage] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSearchPackage, setSelectedSearchPackage] = useState(null);
 
 const NOMINATED_STORE_EMAIL = "team31qut736@gmail.com";
 const [profileName, setProfileName] = useState("");
@@ -414,6 +454,33 @@ const [receiveDeals, setReceiveDeals] = useState(false);
 
   const destinations = useMemo(() => buildDestinations(packagesData), [packagesData]);
   const cityIndex = useMemo(() => buildCityIndex(), []);
+  const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
+  const matchingPackages = useMemo(() =>
+    [...packagesData, ...cityPackagesData].filter((pkg) => matchesPackage(pkg, normalizedSearch, activeFilters)),
+  [packagesData, normalizedSearch, activeFilters]);
+  const visiblePackagesRef = useRef(new Set());
+  visiblePackagesRef.current = new Set(matchingPackages);
+
+  const updateSearch = (value) => {
+    setSearchQuery(value);
+    setSelectedSearchPackage(null);
+  };
+
+  const selectSearchResult = (pkg) => {
+    setSelectedSearchPackage(pkg);
+    if (popupRef.current) popupRef.current.remove();
+    if (cityPopupRef.current) cityPopupRef.current.remove();
+    if (hasCoordinates(pkg)) {
+      mapInstanceRef.current?.flyTo({
+        center: [Number(pkg.lon), Number(pkg.lat)],
+        zoom: Math.max(mapInstanceRef.current.getZoom(), 5),
+        duration: 1200,
+        essential: true,
+      });
+    }
+    trackPackageClick(pkg);
+    setSelectedPackage(pkg);
+  };
 
   const cityIndexRef = useRef(cityIndex);
   useEffect(() => {
@@ -630,14 +697,19 @@ const [receiveDeals, setReceiveDeals] = useState(false);
       map.on('zoomend', syncCountryView);
 
       destinations.forEach((dest) => {
+        if (!hasCoordinates(dest)) return;
         const el = document.createElement('div');
         el.className = 'country-pin';
 
         el.addEventListener('click', (e) => {
           e.stopPropagation();
 
+          const shownPackages = dest.packages.filter((pkg) => visiblePackagesRef.current.has(pkg));
+          if (!shownPackages.length) return;
+          const shownDest = { ...dest, packages: shownPackages };
+
           preZoomViewRef.current = { center: map.getCenter().toArray(), zoom: map.getZoom() };
-          activeDestRef.current = dest;
+          activeDestRef.current = shownDest;
 
           popupSessionRef.current += 1;
           const session = popupSessionRef.current;
@@ -648,7 +720,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
 
           const popup = new maplibregl.Popup({ offset: 20, closeButton: true, maxWidth: 'none' })
             .setLngLat([dest.lon, dest.lat])
-            .setHTML(buildPopupHTML(dest, savedPackagesRef.current))
+            .setHTML(buildPopupHTML(shownDest, savedPackagesRef.current))
             .addTo(map);
 
           const popupElem = popup.getElement();
@@ -658,7 +730,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
               if (saveBtn) {
                 ev.stopPropagation();
                 const indexAttr = saveBtn.getAttribute('data-index');
-                const targetPkg = dest.packages[parseInt(indexAttr, 10)];
+                const targetPkg = shownPackages[parseInt(indexAttr, 10)];
                 if (targetPkg) {
                   toggleSavePackage(targetPkg);
                 }
@@ -668,7 +740,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
               const cardEl = ev.target.closest('.package-card');
               if (cardEl) {
                 const indexAttr = cardEl.getAttribute('data-index');
-                const targetPkg = dest.packages[parseInt(indexAttr, 10)];
+                const targetPkg = shownPackages[parseInt(indexAttr, 10)];
                 if (targetPkg) {
                   trackPackageClick(targetPkg);
                   setSelectedPackage(targetPkg);
@@ -739,22 +811,26 @@ const [receiveDeals, setReceiveDeals] = useState(false);
     activeCityRef.current = null;
     cityExpandedRef.current = false;
 
-    /* World view: put the country pins back. */
+    /* World view: keep country pins; matching city pins can also show during search. */
     if (!activeCountry) {
       markersRef.current.forEach(({ element }) => {
         if (element) element.style.display = '';
       });
-      return;
+    } else {
+      markersRef.current.forEach(({ element }) => {
+        if (element) element.style.display = 'none';
+      });
     }
 
-    /* Country view: country pins would only clutter, so hide them. */
-    markersRef.current.forEach(({ element }) => {
-      if (element) element.style.display = 'none';
-    });
-
-    const cities = cityIndexRef.current[activeCountry] || [];
+    const cities = activeCountry
+      ? cityIndexRef.current[activeCountry] || []
+      : normalizedSearch
+        ? Object.values(cityIndexRef.current).flat().filter((city) =>
+            city.packages.some((pkg) => visiblePackagesRef.current.has(pkg)))
+        : [];
 
     cities.forEach((city) => {
+      if (!hasCoordinates(city)) return;
       const el = document.createElement('div');
       el.className = 'city-pin';
       el.setAttribute('role', 'button');
@@ -771,11 +847,14 @@ const [receiveDeals, setReceiveDeals] = useState(false);
       el.querySelector('.city-pin-count').textContent = String(city.packages.length);
 
       const openCityPopup = () => {
+        const shownPackages = city.packages.filter((pkg) => visiblePackagesRef.current.has(pkg));
+        if (!shownPackages.length) return;
+        const shownCity = { ...city, packages: shownPackages };
         if (cityPopupRef.current) cityPopupRef.current.remove();
         if (popupRef.current) popupRef.current.remove();
 
         cityExpandedRef.current = false;
-        activeCityRef.current = city;
+        activeCityRef.current = shownCity;
 
         cityMarkersRef.current.forEach(({ element }) => element.classList.remove('is-active'));
         el.classList.add('is-active');
@@ -787,7 +866,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
           className: 'city-popup',
         })
           .setLngLat([city.lon, city.lat])
-          .setHTML(buildCityPopupHTML(city, savedPackagesRef.current, false))
+          .setHTML(buildCityPopupHTML(shownCity, savedPackagesRef.current, false))
           .addTo(map);
 
         /*
@@ -804,9 +883,7 @@ const [receiveDeals, setReceiveDeals] = useState(false);
             if (browseBtn) {
               ev.stopPropagation();
               cityExpandedRef.current = browseBtn.getAttribute('data-action') === 'expand';
-              popup.setHTML(
-                buildCityPopupHTML(city, savedPackagesRef.current, cityExpandedRef.current)
-              );
+              popup.setHTML(buildCityPopupHTML(shownCity, savedPackagesRef.current, cityExpandedRef.current));
               return;
             }
 
@@ -815,8 +892,8 @@ const [receiveDeals, setReceiveDeals] = useState(false);
             if (saveBtn) {
               ev.stopPropagation();
               const list = cityExpandedRef.current
-                ? city.packages
-                : city.packages.slice(0, CITY_PREVIEW_LIMIT);
+                ? shownPackages
+                : shownPackages.slice(0, CITY_PREVIEW_LIMIT);
               const targetPkg = list[parseInt(saveBtn.getAttribute('data-index'), 10)];
               if (targetPkg) toggleSavePackage(targetPkg);
               return;
@@ -826,8 +903,8 @@ const [receiveDeals, setReceiveDeals] = useState(false);
             const cardEl = ev.target.closest('.package-card');
             if (cardEl) {
               const list = cityExpandedRef.current
-                ? city.packages
-                : city.packages.slice(0, CITY_PREVIEW_LIMIT);
+                ? shownPackages
+                : shownPackages.slice(0, CITY_PREVIEW_LIMIT);
               const targetPkg = list[parseInt(cardEl.getAttribute('data-index'), 10)];
               if (targetPkg) {
                 trackPackageClick(targetPkg);
@@ -864,17 +941,22 @@ const [receiveDeals, setReceiveDeals] = useState(false);
 
       cityMarkersRef.current.push({ marker, element: el, city });
     });
-  }, [activeCountry, mapLoaded]);
+  }, [activeCountry, normalizedSearch, matchingPackages, mapLoaded]);
 
-  /* Dim city pins that do not match the active filters. */
+  /* Keep search, filters, and marker highlighting in sync. */
   useEffect(() => {
     cityMarkersRef.current.forEach(({ element, city }) => {
       if (!element) return;
-      const matches =
-        activeFilters.length === 0 || activeFilters.some((f) => city.tags.includes(f));
+      const matches = city.packages.some((pkg) => visiblePackagesRef.current.has(pkg));
       element.classList.toggle('is-dimmed', !matches);
+      element.classList.toggle('is-search-match', Boolean(selectedSearchPackage && city.packages.includes(selectedSearchPackage)));
     });
-  }, [activeFilters, activeCountry, mapLoaded]);
+  }, [matchingPackages, selectedSearchPackage, activeCountry, mapLoaded]);
+
+  useEffect(() => {
+    if (popupRef.current) popupRef.current.remove();
+    if (cityPopupRef.current) cityPopupRef.current.remove();
+  }, [searchQuery, activeFilters]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -888,26 +970,24 @@ const [receiveDeals, setReceiveDeals] = useState(false);
     // reintroduce the old pattern - if you're resolving a merge conflict
     // here, keep this version.)
     markersRef.current.forEach(({ marker, element, destination }) => {
-      const matches =
-        activeFilters.length === 0 ||
-        activeFilters.some((filter) => destination.tags.includes(filter));
+      const matches = destination.packages.some((pkg) => visiblePackagesRef.current.has(pkg));
       if (marker && typeof marker.setOpacity === 'function') {
-        marker.setOpacity(matches ? '1' : '0.25');
+        marker.setOpacity(matches ? '1' : '0');
       }
       if (element) {
         element.style.pointerEvents = matches ? 'auto' : 'none';
+        element.classList.toggle('is-search-match', Boolean(selectedSearchPackage && destination.packages.includes(selectedSearchPackage)));
+        element.style.display = !activeCountry || (selectedSearchPackage && destination.packages.includes(selectedSearchPackage)) ? '' : 'none';
       }
     });
 
     try {
-      if (activeFilters.length === 0) {
+      if (activeFilters.length === 0 && !normalizedSearch) {
         map.setFilter('country-dim-overlay', ['in', ['get', 'ISO_A3'], ['literal', []]]);
         return;
       }
 
-      const matchingIso3 = destinations
-        .filter((d) => d.iso3 && activeFilters.some((filter) => d.tags.includes(filter)))
-        .map((d) => d.iso3);
+      const matchingIso3 = [...new Set(matchingPackages.map((pkg) => pkg.iso3).filter(Boolean))];
 
       /*
        * ISO_A3 is "-99" for France and Norway in this dataset, and coalesce
@@ -924,9 +1004,10 @@ const [receiveDeals, setReceiveDeals] = useState(false);
     } catch (err) {
       console.error('Failed to update map filter:', err);
     }
-  }, [activeFilters, mapLoaded, destinations]);
+  }, [matchingPackages, selectedSearchPackage, activeCountry, activeFilters, normalizedSearch, mapLoaded, destinations]);
 
   const toggleFilter = (filterId) => {
+    setSelectedSearchPackage(null);
     if (!activeFilters.includes(filterId)) {
       trackFilterClick(filterId);
     }
@@ -1276,6 +1357,15 @@ const [receiveDeals, setReceiveDeals] = useState(false);
       )}
 
       <div className="filter-panel">
+        <div className="filter-header">Find your trip</div>
+        <PackageSearch
+          query={searchQuery}
+          onQueryChange={updateSearch}
+          results={matchingPackages}
+          getLocation={searchLocation}
+          onSelect={selectSearchResult}
+          loading={packagesLoading}
+        />
         <div className="filter-header">Filter Destinations</div>
         <div className="chip-container">
           {FILTER_OPTIONS.map((filter) => {
@@ -1300,6 +1390,12 @@ const [receiveDeals, setReceiveDeals] = useState(false);
           className="reset-btn"
           onClick={() => {
             setActiveFilters([]);
+            setSearchQuery('');
+            setSelectedSearchPackage(null);
+            setSelectedPackage(null);
+            if (popupRef.current) popupRef.current.remove();
+            if (cityPopupRef.current) cityPopupRef.current.remove();
+            setActiveCountry(null);
             mapInstanceRef.current?.flyTo({ center: [0, 20], zoom: 2, duration: 1000 });
           }}
           title="Reset View"
