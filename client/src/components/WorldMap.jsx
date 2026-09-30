@@ -722,11 +722,20 @@ export default function WorldMap() {
 
     cities.forEach((city) => {
       if (!hasCoordinates(city)) return;
+
+      // 1. Calculate visible packages for this city
+      const visiblePkgs = visiblePackagesRef?.current
+        ? city.packages.filter((pkg) => visiblePackagesRef.current.has(pkg))
+        : city.packages;
+
+      // 2. Hide/skip city pins if no matching packages remain
+      if (visiblePkgs.length === 0) return;
+
       const el = document.createElement('div');
       el.className = 'city-pin';
       el.setAttribute('role', 'button');
       el.setAttribute('tabindex', '0');
-      el.setAttribute('aria-label', `${city.name}, ${city.packages.length} packages`);
+      el.setAttribute('aria-label', `${city.name}, ${visiblePkgs.length} packages`);
       el.innerHTML = `
         <i class="fi-br-map-marker city-pin-marker" aria-hidden="true"></i>
         <span class="city-pin-label">
@@ -735,7 +744,9 @@ export default function WorldMap() {
         </span>
       `;
       el.querySelector('.city-pin-name').textContent = city.name;
-      el.querySelector('.city-pin-count').textContent = String(city.packages.length);
+      
+      // 3. Set badge text to filtered count
+      el.querySelector('.city-pin-count').textContent = String(visiblePkgs.length);
 
       const openCityPopup = () => {
         const shownPackages = city.packages.filter((pkg) => visiblePackagesRef.current.has(pkg));
@@ -759,12 +770,6 @@ export default function WorldMap() {
           .setLngLat([city.lon, city.lat])
           .setHTML(buildCityPopupHTML(shownCity, savedPackagesRef.current, false))
           .addTo(map);
-
-        /*
-         * No map pan here. main now renders popups fixed and centred on
-         * screen (see .maplibregl-popup-content), so nudging the map to make
-         * room below the pin has no effect other than a jarring shift.
-         */
 
         const popupElem = popup.getElement();
         if (popupElem) {
@@ -844,46 +849,120 @@ export default function WorldMap() {
     });
   }, [matchingPackages, selectedSearchPackage, activeCountry, mapLoaded]);
 
+
   useEffect(() => {
     if (popupRef.current) popupRef.current.remove();
     if (cityPopupRef.current) cityPopupRef.current.remove();
   }, [searchQuery, activeFilters]);
 
+  // Sync map markers, city pins, and country overlays
   useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map || !mapLoaded || !map.isStyleLoaded()) return;
+    if (!mapLoaded) return;
 
-    // IMPORTANT: use marker.setOpacity(), not element.style.opacity directly -
-    // MapLibre's Marker re-applies its own internal opacity on every map
-    // render (including mid-flyTo/fitBounds), so a raw style write gets
-    // silently clobbered back to 1 the moment the camera next moves. (This
-    // exact regression has landed on main three times now via merges that
-    // reintroduce the old pattern - if you're resolving a merge conflict
-    // here, keep this version.)
-    markersRef.current.forEach(({ marker, element, destination }) => {
-      const matches = destination.packages.some((pkg) => visiblePackagesRef.current.has(pkg));
-      if (marker && typeof marker.setOpacity === 'function') {
-        marker.setOpacity(matches ? '1' : '0');
-      }
-      if (element) {
-        element.style.pointerEvents = matches ? 'auto' : 'none';
-        element.classList.toggle('is-search-match', Boolean(selectedSearchPackage && destination.packages.includes(selectedSearchPackage)));
-        element.style.display = !activeCountry || (selectedSearchPackage && destination.packages.includes(selectedSearchPackage)) ? '' : 'none';
-      }
-    });
+    const hasActiveFilters = activeFilters.length > 0 || Boolean(normalizedSearch);
 
+    // 1. Build a set of matching package keys for reliable lookup
+    const matchingKeysSet = new Set(
+      matchingPackages.map((pkg) => getPkgKey(pkg)).filter(Boolean)
+    );
+
+    // 2. UPDATE GLOBAL COUNTRY MARKERS
+    if (markersRef.current.length > 0) {
+      markersRef.current.forEach(({ marker, element, destination }) => {
+        if (!element || !marker) return;
+
+        const filteredPackages = hasActiveFilters
+          ? destination.packages.filter((pkg) => matchingKeysSet.has(getPkgKey(pkg)))
+          : destination.packages;
+
+        const filteredCount = filteredPackages.length;
+        const matchesFilter = !hasActiveFilters || filteredCount > 0;
+
+        const isSearchMatch = Boolean(
+          selectedSearchPackage &&
+          destination.packages.some((pkg) => getPkgKey(pkg) === getPkgKey(selectedSearchPackage))
+        );
+
+        const matchesCountry =
+          !activeCountry ||
+          destination.country === activeCountry ||
+          destination.iso3 === activeCountry ||
+          (destination.packages && destination.packages.some((pkg) => pkg.country === activeCountry));
+
+        // FIX 1: Keep global markers visible on the map but visually dim them when filtered
+        if (typeof marker.setOpacity === 'function') {
+          marker.setOpacity('1'); 
+        }
+        
+        element.classList.toggle('is-dimmed', !matchesFilter);
+        element.classList.toggle('is-search-match', isSearchMatch);
+        element.style.pointerEvents = matchesFilter ? 'auto' : 'none';
+
+        const badgeEl = element.querySelector('.marker-count, .package-count, .pin-count');
+        if (badgeEl) {
+          badgeEl.textContent = filteredCount;
+        }
+
+        // Only hide completely if it fails the active country scope
+        element.style.display = matchesCountry ? '' : 'none';
+      });
+    }
+
+    // 3. UPDATE CITY MARKERS
+    if (cityMarkersRef.current && cityMarkersRef.current.length > 0) {
+      cityMarkersRef.current.forEach(({ element, city }) => {
+        if (!element) return;
+
+        // Filter city packages against active filters
+        const filteredPackages = hasActiveFilters
+          ? city.packages.filter((pkg) => matchingKeysSet.has(getPkgKey(pkg)))
+          : city.packages;
+
+        const filteredCount = filteredPackages.length;
+        const matchesFilter = !hasActiveFilters || filteredCount > 0;
+
+        const isSearchMatch = Boolean(
+          selectedSearchPackage &&
+          city.packages.some((pkg) => getPkgKey(pkg) === getPkgKey(selectedSearchPackage))
+        );
+
+        element.classList.toggle('is-search-match', isSearchMatch);
+        element.style.pointerEvents = matchesFilter ? 'auto' : 'none';
+
+        // FIX 3: Update the city badge/counter text with the filtered count
+        const badgeEl = element.querySelector('.marker-count, .package-count, .pin-count');
+        if (badgeEl) {
+          badgeEl.textContent = filteredCount;
+        }
+
+        // FIX 2: Completely hide city pins if they have no relevant packages
+        if (matchesFilter) {
+          element.style.display = '';
+          element.classList.remove('is-dimmed');
+        } else {
+          element.style.display = 'none';
+        }
+      });
+    }
+
+    // 4. UPDATE MAP COUNTRY SHADING OVERLAY
     try {
-      if (activeFilters.length === 0 && !normalizedSearch) {
+      const map = mapInstanceRef.current;
+      if (!map || typeof map.getLayer !== 'function' || !map.getLayer('country-dim-overlay')) return;
+
+      if (!hasActiveFilters) {
         map.setFilter('country-dim-overlay', ['in', ['get', 'ISO_A3'], ['literal', []]]);
         return;
       }
 
-      const matchingIso3 = [...new Set(matchingPackages.map((pkg) => pkg.iso3).filter(Boolean))];
+      const matchingIso3 = [
+        ...new Set(
+          matchingPackages
+            .map((pkg) => pkg.iso3 || pkg.countryCode || pkg.iso_a3)
+            .filter(Boolean)
+        ),
+      ];
 
-      /*
-       * ISO_A3 is "-99" for France and Norway in this dataset, and coalesce
-       * treats "-99" as a real value, so ISO_A3_EH / ADM0_A3 have to come first.
-       */
       map.setFilter('country-dim-overlay', [
         '!',
         [
@@ -895,7 +974,15 @@ export default function WorldMap() {
     } catch (err) {
       console.error('Failed to update map filter:', err);
     }
-  }, [matchingPackages, selectedSearchPackage, activeCountry, activeFilters, normalizedSearch, mapLoaded, destinations]);
+  }, [
+    matchingPackages,
+    selectedSearchPackage,
+    activeCountry,
+    activeFilters,
+    normalizedSearch,
+    mapLoaded,
+    destinations,
+  ]);
 
   const toggleFilter = (filterId) => {
     setSelectedSearchPackage(null);
@@ -965,7 +1052,7 @@ export default function WorldMap() {
           className="back-to-world-btn"
           onClick={() => {
             if (cityPopupRef.current) cityPopupRef.current.remove();
-            setActiveCountry(null);
+            setActiveCountry(null); // This changes state, triggering the useEffect
             mapInstanceRef.current?.flyTo({ center: [0, 20], zoom: 2, duration: 1000 });
           }}
         >
