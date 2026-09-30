@@ -900,7 +900,7 @@ export default function WorldMap() {
           destination.iso3 === activeCountry ||
           (destination.packages && destination.packages.some((pkg) => pkg.country === activeCountry));
 
-        // FIX 1: Keep global markers visible on the map but visually dim them when filtered
+        // Dimming logic
         if (typeof marker.setOpacity === 'function') {
           marker.setOpacity('1'); 
         }
@@ -914,8 +914,13 @@ export default function WorldMap() {
           badgeEl.textContent = filteredCount;
         }
 
-        // Only hide completely if it fails the active country scope
-        element.style.display = matchesCountry ? '' : 'none';
+        const shouldHideForSearch = Boolean(normalizedSearch);
+        
+        if (shouldHideForSearch || !matchesCountry) {
+          element.style.display = 'none';
+        } else {
+          element.style.display = '';
+        }
       });
     }
 
