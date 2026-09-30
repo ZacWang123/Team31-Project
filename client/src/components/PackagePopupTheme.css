@@ -278,3 +278,47 @@
   background: #cbd5e1;
   border-radius: 8px;
 }
+
+.filter-panel {
+  transition: width 0.25s ease, padding 0.25s ease;
+}
+
+.filter-panel.minimized {
+  width: auto;
+  min-width: 200px;
+  padding-bottom: 12px;
+}
+
+.filter-panel-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.filter-panel-header-row .explore-heading {
+  margin-bottom: 0 !important;
+}
+
+.filter-collapse-btn {
+  background: #f3f4f6;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #4b5563;
+  transition: background 0.2s;
+}
+
+.filter-collapse-btn:hover {
+  background: #e5e7eb;
+}
+
+.filter-panel-body {
+  margin-top: 12px;
+}
