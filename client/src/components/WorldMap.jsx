@@ -16,6 +16,8 @@ import TravelProfileModal from './TravelProfileModal';
 import PackageDetailModal from './PackageDetailModal';
 import StatusBanner from './StatusBanner';
 import TopBar from './TopBar';
+import { TAG_RULES, getPackageTags, packageCountry, hasCoordinates, matchesPackage } from '../utils/tagUtils';
+import { resolveIso3, boundsForCities, buildDestinations, buildCityIndex } from '../utils/mapDataBuilders';
 
 // FCIPT3-25: packages now come from the live database (synced from Flight
 // Centre's Google Sheet) instead of the bundled packages.json. City-level
@@ -34,14 +36,6 @@ const MAP_STYLE = `https://api.maptiler.com/maps/basic-v2/style.json?key=${MAPTI
 
 const WORLD_GEOJSON_URL =
   'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson';
-
-const TAG_RULES = [
-  { id: 'ski', label: 'Ski & Snow', icon: 'fi-rr-snowflake', test: /ski|snow/i },
-  { id: 'cruise', label: 'Cruise', icon: 'fi-rr-ship', test: /cruise|sail/i },
-  { id: 'all-inclusive', label: 'All-Inclusive', icon: 'fi-rr-umbrella-beach', test: /all-inclusive/i },
-  { id: 'stopover', label: 'Stopover', icon: 'fi-rr-route', test: /stopover/i },
-  { id: 'tour', label: 'Tours & Expeditions', icon: 'fi-rr-mountains', test: /tour|express|explorer|discovery|expedition/i },
-];
 
 const customZoomViews = {
   Australia: { center: [133.7751, -25.2744], zoom: 4.6 },
@@ -64,6 +58,8 @@ const getPkgKey = (pkg) => {
   return String(pkg.id || pkg.packageName || pkg.title || '').trim();
 };
 
+const countryNames = new Intl.DisplayNames(['en'], { type: 'region' });
+
 // Country/city/place, extracted from Flight Centre's own supplier image
 // paths and package titles (not guessed) - see server/src/services/
 // transform.js, which enriches each row on sync from the live database.
@@ -78,172 +74,9 @@ function formatLocationPath(pkg) {
   return parts.length > 0 ? parts.join(' › ') : (pkg.destination || '');
 }
 
-function getPackageTags(pkg) {
-  const tags = [];
-  const title = pkg.packageName || pkg.title || pkg.name || '';
-  const haystack = `${title} ${pkg.wowFactor || ''} ${pkg.destination || ''}`;
-  TAG_RULES.forEach(({ id }) => {
-    const rule = TAG_RULES.find((r) => r.id === id);
-    if (rule && rule.test.test(haystack)) {
-      tags.push(id);
-    }
-  });
-  return tags;
-}
-
-function hasCoordinates(pkg) {
-  const lat = Number(pkg?.lat);
-  const lon = Number(pkg?.lon);
-  return pkg?.lat != null && pkg?.lon != null && Number.isFinite(lat) && Number.isFinite(lon)
-    && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 && !(lat === 0 && lon === 0);
-}
-
-const countryNames = new Intl.DisplayNames(['en'], { type: 'region' });
-function packageCountry(pkg) {
-  if (pkg.country) return pkg.country;
-  try {
-    return pkg.iso2 ? countryNames.of(String(pkg.iso2).toUpperCase()) : '';
-  } catch {
-    return '';
-  }
-}
-
 function searchLocation(pkg) {
   return [pkg.city, pkg.destination, packageCountry(pkg)]
     .filter((part, index, parts) => part && parts.indexOf(part) === index).join(' · ');
-}
-
-function matchesPackage(pkg, query, filters) {
-  const matchesFilter = !filters.length || filters.some((filter) => getPackageTags(pkg).includes(filter));
-  const text = [pkg.packageName, pkg.title, pkg.name, pkg.city, pkg.destination, packageCountry(pkg)]
-    .filter(Boolean).join(' ').toLocaleLowerCase();
-  return matchesFilter && (!query || text.includes(query));
-}
-
-function buildDestinations(packagesData) {
-  const byDestination = new Map();
-  const safeData = Array.isArray(packagesData) ? packagesData : [];
-
-  safeData.forEach((pkg) => {
-    if (!pkg || !pkg.destination) return;
-    if (!byDestination.has(pkg.destination)) {
-      byDestination.set(pkg.destination, {
-        destination: pkg.destination,
-        country: pkg.country || '',
-        lat: pkg.lat || 0,
-        lon: pkg.lon || 0,
-        iso3: pkg.iso3 || '',
-        tags: new Set(),
-        packages: [],
-      });
-    }
-    const entry = byDestination.get(pkg.destination);
-    entry.packages.push(pkg);
-    if (!hasCoordinates(entry) && hasCoordinates(pkg)) {
-      entry.lat = Number(pkg.lat);
-      entry.lon = Number(pkg.lon);
-    }
-
-    const tags = getPackageTags(pkg);
-    tags.forEach((t) => entry.tags.add(t));
-  });
-
-  return Array.from(byDestination.values()).map((d) => ({
-    ...d,
-    tags: Array.from(d.tags),
-  }));
-}
-
-/*
- * FCIPT3-10
- * Groups the flat cityPackages.json array into { ISO3: [city, city, ...] }.
- * Cities are ordered by package count, so "popular as per the associated
- * travel packages" is what decides which pins read as most prominent.
- */
-function buildCityIndex() {
-  const byCountry = new Map();
-  const safeData = Array.isArray(cityPackagesData) ? cityPackagesData : [];
-
-  safeData.forEach((pkg) => {
-    if (!pkg || !pkg.iso3 || !pkg.city) return;
-
-    const iso3 = String(pkg.iso3).toUpperCase();
-    if (!byCountry.has(iso3)) byCountry.set(iso3, new Map());
-    const cities = byCountry.get(iso3);
-
-    if (!cities.has(pkg.city)) {
-      cities.set(pkg.city, {
-        name: pkg.city,
-        lat: pkg.lat || 0,
-        lon: pkg.lon || 0,
-        iso2: pkg.iso2 || '',
-        iso3,
-        tags: new Set(),
-        packages: [],
-      });
-    }
-
-    const entry = cities.get(pkg.city);
-    entry.packages.push(pkg);
-    if (!hasCoordinates(entry) && hasCoordinates(pkg)) {
-      entry.lat = Number(pkg.lat);
-      entry.lon = Number(pkg.lon);
-    }
-    getPackageTags(pkg).forEach((t) => entry.tags.add(t));
-  });
-
-  const index = {};
-  byCountry.forEach((cities, iso3) => {
-    index[iso3] = Array.from(cities.values())
-      .map((c) => ({ ...c, tags: Array.from(c.tags) }))
-      .sort((a, b) => b.packages.length - a.packages.length);
-  });
-  return index;
-}
-
-/*
- * Natural Earth sets ISO_A3 to "-99" for some countries (France, Norway).
- * ISO_A3_EH and ADM0_A3 carry the real code, so try those first.
- */
-function resolveIso3(props) {
-  if (!props) return null;
-  const candidates = [
-    props.ISO_A3_EH,
-    props.ADM0_A3,
-    props.ISO_A3,
-    props.iso_a3,
-    props.adm0_a3,
-  ];
-  for (const candidate of candidates) {
-    const value = candidate ? String(candidate).trim().toUpperCase() : '';
-    if (value && value !== '-99' && value.length === 3) return value;
-  }
-  return null;
-}
-
-/* Bounding box around a country's cities, with a little breathing room. */
-function boundsForCities(cities) {
-  if (!cities || cities.length === 0) return null;
-
-  let west = 180;
-  let south = 90;
-  let east = -180;
-  let north = -90;
-
-  cities.forEach(({ lon, lat }) => {
-    if (lon < west) west = lon;
-    if (lon > east) east = lon;
-    if (lat < south) south = lat;
-    if (lat > north) north = lat;
-  });
-
-  const padLon = Math.max((east - west) * 0.25, 1.5);
-  const padLat = Math.max((north - south) * 0.25, 1.5);
-
-  return [
-    [Math.max(west - padLon, -179), Math.max(south - padLat, -85)],
-    [Math.min(east + padLon, 179), Math.min(north + padLat, 85)],
-  ];
 }
 
 /*
@@ -395,14 +228,14 @@ export default function WorldMap() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSearchPackage, setSelectedSearchPackage] = useState(null);
 
-const NOMINATED_STORE_EMAIL = "team31qut736@gmail.com";
-const [profileName, setProfileName] = useState("");
-const [profileEmail, setProfileEmail] = useState("");
-const [profilePhone, setProfilePhone] = useState("");
-const [sendToSelf, setSendToSelf] = useState(true);
-const [sendToStore, setSendToStore] = useState(true);
-const [saveProfileLocal, setSaveProfileLocal] = useState(true);
-const [receiveDeals, setReceiveDeals] = useState(false);
+  const NOMINATED_STORE_EMAIL = "team31qut736@gmail.com";
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
+  const [sendToSelf, setSendToSelf] = useState(true);
+  const [sendToStore, setSendToStore] = useState(true);
+  const [saveProfileLocal, setSaveProfileLocal] = useState(true);
+  const [receiveDeals, setReceiveDeals] = useState(false);
 
   // FCIPT3-25: live database instead of a bundled JSON import. Editing the
   // Google Sheet and re-syncing changes what shows here with no rebuild.
@@ -461,7 +294,9 @@ const [receiveDeals, setReceiveDeals] = useState(false);
   }, [savedPackages]);
 
   const destinations = useMemo(() => buildDestinations(packagesData), [packagesData]);
-  const cityIndex = useMemo(() => buildCityIndex(), []);
+  
+  // Make sure cityPackagesData is passed in here:
+  const cityIndex = useMemo(() => buildCityIndex(cityPackagesData), [cityPackagesData]);
 
   /*
    * A country like France only shows up here via Paris in cityPackages.json
