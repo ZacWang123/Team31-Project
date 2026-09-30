@@ -5,7 +5,10 @@ export const FILTER_OPTIONS = [
   { id: 'adventure', label: 'Adventure', icon: 'fi-br-hiking' },
   { id: 'culture', label: 'Culture & History', icon: 'fi-br-landmark' },
   { id: 'luxury', label: 'Luxury & Leisure', icon: 'fi-br-gem' },
+  { id: 'ski', label: 'Ski & Snow', icon: 'fi-rr-snowflake'},
+  { id: 'stopover', label: 'Stopover', icon: 'fi-rr-route'},
 ];
+
 
 export const TIMEOUT_CONFIG = {
   WARNING_TIME_MS: 25 * 60 * 1000, // 25 minutes

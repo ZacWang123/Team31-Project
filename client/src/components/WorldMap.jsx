@@ -423,7 +423,7 @@ export default function WorldMap() {
         });
       }
 
-      alert("Real email sent successfully!");
+      alert("Email sent successfully!");
       setIsProfileOpen(false);
     } catch (err) {
       console.error("Failed to send email:", err);
