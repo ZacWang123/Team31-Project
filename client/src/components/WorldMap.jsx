@@ -6,7 +6,6 @@ import PackageSearch from './PackageSearch';
 import { useTravelProfile } from '../context/TravelProfileContext';
 import './WorldMap.css';
 import './PackagePopupTheme.css';
-import { generateConsultantReport } from '../utils/ProfileExport';
 import { FILTER_OPTIONS } from '../constants/mapConstants';
 // import { filterPackages } from '../utils/packageUtils';
 import { formatLocationName } from '../utils/locationUtils';
@@ -431,13 +430,9 @@ export default function WorldMap() {
     }
   };
 
+  // 1. Initialize the base map and core layers once
   useEffect(() => {
     if (!mapContainerRef.current) return;
-    // Wait for the live database fetch before building the map - this
-    // effect depends on [destinations] further down and rebuilds the whole
-    // map (layers, click handlers, markers) whenever it changes. Starting
-    // it before packages have loaded would build an empty map, then
-    // immediately tear it down and rebuild it once real data arrives.
     if (packagesLoading) return;
 
     const map = new maplibregl.Map({
@@ -493,11 +488,6 @@ export default function WorldMap() {
         });
       }
 
-      /* ------------------------------------------------------------------
-         FCIPT3-10: tapping a country flies to it; the moveend/zoomend
-         handler below then decides whether we are at "country level" and
-         switches the pins over.
-         ------------------------------------------------------------------ */
       map.on('click', 'country-click-layer', (e) => {
         const feature = e.features && e.features[0];
         if (!feature) return;
@@ -528,7 +518,6 @@ export default function WorldMap() {
         map.getCanvas().style.cursor = '';
       });
 
-      /* Work out which country (if any) fills the view, and remember it. */
       const syncCountryView = () => {
         if (!mapInstanceRef.current) return;
 
@@ -550,121 +539,12 @@ export default function WorldMap() {
 
         setActiveCountry((prev) => {
           if (iso3 && cityIndexRef.current[iso3]) return iso3;
-          /*
-           * Nothing usable under the centre - usually ocean after panning to
-           * a coastal city. Hold the current country rather than tearing the
-           * city pins down mid-interaction.
-           */
           return prev;
         });
       };
 
       map.on('moveend', syncCountryView);
       map.on('zoomend', syncCountryView);
-
-      destinations.forEach((dest) => {
-        if (!hasCoordinates(dest)) return;
-        const el = document.createElement('div');
-        el.className = 'country-pin';
-        el.innerHTML = '<i class="fi-br-map-marker" aria-hidden="true"></i>';
-
-        el.addEventListener('click', (e) => {
-          e.stopPropagation();
-
-          const shownPackages = dest.packages.filter((pkg) => visiblePackagesRef.current.has(pkg));
-          if (!shownPackages.length) return;
-          const shownDest = { ...dest, packages: shownPackages };
-
-          preZoomViewRef.current = { center: map.getCenter().toArray(), zoom: map.getZoom() };
-          activeDestRef.current = shownDest;
-
-          popupSessionRef.current += 1;
-          const session = popupSessionRef.current;
-
-          if (popupRef.current) {
-            popupRef.current.remove();
-          }
-
-          const popup = new maplibregl.Popup({ offset: 20, closeButton: true, maxWidth: 'none' })
-            .setLngLat([dest.lon, dest.lat])
-            .setHTML(buildPopupHTML(shownDest, savedPackagesRef.current))
-            .addTo(map);
-
-          const popupElem = popup.getElement();
-          if (popupElem) {
-            popupElem.addEventListener('click', (ev) => {
-              const saveBtn = ev.target.closest('.save-package-btn');
-              if (saveBtn) {
-                ev.stopPropagation();
-                const indexAttr = saveBtn.getAttribute('data-index');
-                const targetPkg = shownPackages[parseInt(indexAttr, 10)];
-                if (targetPkg) {
-                  toggleSavePackage(targetPkg);
-                }
-                return;
-              }
-
-              const cardEl = ev.target.closest('.package-card');
-              if (cardEl) {
-                const indexAttr = cardEl.getAttribute('data-index');
-                const targetPkg = shownPackages[parseInt(indexAttr, 10)];
-                if (targetPkg) {
-                  trackPackageClick(targetPkg);
-                  setSelectedPackage(targetPkg);
-                }
-              }
-            });
-          }
-
-          popup.on('close', () => {
-            if (popupSessionRef.current !== session) return;
-            activeDestRef.current = null;
-            const view = preZoomViewRef.current;
-            if (view && mapInstanceRef.current) {
-              map.flyTo({ center: view.center, zoom: view.zoom, essential: true, duration: 1000 });
-            }
-          });
-
-          popupRef.current = popup;
-
-          const zoomView = customZoomViews[dest.destination];
-          if (zoomView) {
-            map.flyTo({ ...zoomView, essential: true, duration: 1200 });
-          } else {
-            map.flyTo({ center: [dest.lon, dest.lat], zoom: Math.max(map.getZoom(), 5), essential: true, duration: 1200 });
-          }
-        });
-
-        const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
-          .setLngLat([dest.lon, dest.lat])
-          .addTo(map);
-
-        markersRef.current.push({ marker, element: el, destination: dest });
-      });
-
-      // Country-only pins (see countryOnlyPins above) - same look as a
-      // destination pin, but clicking one just zooms into that country's
-      // cities rather than opening a destination popup, since there's no
-      // destination-level package behind it, only city-level ones.
-      countryOnlyPins.forEach(({ cities, lat, lon, tags }) => {
-        if (!hasCoordinates({ lat, lon })) return;
-        const el = document.createElement('div');
-        el.className = 'country-pin';
-        el.innerHTML = '<i class="fi-br-map-marker" aria-hidden="true"></i>';
-
-        el.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (popupRef.current) popupRef.current.remove();
-
-          const bounds = boundsForCities(cities);
-          if (bounds) {
-            map.fitBounds(bounds, { padding: 90, maxZoom: 7, duration: 1200, essential: true });
-          }
-        });
-
-        const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([lon, lat]).addTo(map);
-        markersRef.current.push({ marker, element: el, destination: { tags, packages: [] } });
-      });
 
       setMapLoaded(true);
     });
@@ -681,8 +561,132 @@ export default function WorldMap() {
         mapInstanceRef.current = null;
       }
     };
-  }, [destinations, packagesLoading, countryOnlyPins]);
+  }, [packagesLoading]);
 
+  // 2. Re-render and filter world-level destination/country pins whenever filters or search change
+  useEffect(() => {
+    if (!mapLoaded || !mapInstanceRef.current) return;
+
+    markersRef.current.forEach(({ marker }) => marker.remove());
+    markersRef.current = [];
+
+    const map = mapInstanceRef.current;
+
+    destinations.forEach((dest) => {
+      if (!hasCoordinates(dest)) return;
+
+      const hasVisiblePackages = dest.packages.some((pkg) => visiblePackagesRef.current.has(pkg));
+      if (!hasVisiblePackages) return;
+
+      const el = document.createElement('div');
+      el.className = 'country-pin';
+      el.innerHTML = '<i class="fi-br-map-marker" aria-hidden="true"></i>';
+
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+
+        const shownPackages = dest.packages.filter((pkg) => visiblePackagesRef.current.has(pkg));
+        if (!shownPackages.length) return;
+        const shownDest = { ...dest, packages: shownPackages };
+
+        preZoomViewRef.current = { center: map.getCenter().toArray(), zoom: map.getZoom() };
+        activeDestRef.current = shownDest;
+
+        popupSessionRef.current += 1;
+        const session = popupSessionRef.current;
+
+        if (popupRef.current) {
+          popupRef.current.remove();
+        }
+
+        const popup = new maplibregl.Popup({ offset: 20, closeButton: true, maxWidth: 'none' })
+          .setLngLat([dest.lon, dest.lat])
+          .setHTML(buildPopupHTML(shownDest, savedPackagesRef.current))
+          .addTo(map);
+
+        const popupElem = popup.getElement();
+        if (popupElem) {
+          popupElem.addEventListener('click', (ev) => {
+            const saveBtn = ev.target.closest('.save-package-btn');
+            if (saveBtn) {
+              ev.stopPropagation();
+              const indexAttr = saveBtn.getAttribute('data-index');
+              const targetPkg = shownPackages[parseInt(indexAttr, 10)];
+              if (targetPkg) {
+                toggleSavePackage(targetPkg);
+              }
+              return;
+            }
+
+            const cardEl = ev.target.closest('.package-card');
+            if (cardEl) {
+              const indexAttr = cardEl.getAttribute('data-index');
+              const targetPkg = shownPackages[parseInt(indexAttr, 10)];
+              if (targetPkg) {
+                trackPackageClick(targetPkg);
+                setSelectedPackage(targetPkg);
+              }
+            }
+          });
+        }
+
+        popup.on('close', () => {
+          if (popupSessionRef.current !== session) return;
+          activeDestRef.current = null;
+          const view = preZoomViewRef.current;
+          if (view) {
+            map.flyTo({ center: view.center, zoom: view.zoom, essential: true, duration: 1000 });
+          }
+        });
+
+        popupRef.current = popup;
+
+        const zoomView = customZoomViews[dest.destination];
+        if (zoomView) {
+          map.flyTo({ ...zoomView, essential: true, duration: 1200 });
+        } else {
+          map.flyTo({ center: [dest.lon, dest.lat], zoom: Math.max(map.getZoom(), 5), essential: true, duration: 1200 });
+        }
+      });
+
+      const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([dest.lon, dest.lat])
+        .addTo(map);
+
+      markersRef.current.push({ marker, element: el, destination: dest });
+    });
+
+    countryOnlyPins.forEach(({ cities, lat, lon, tags }) => {
+      if (!hasCoordinates({ lat, lon })) return;
+
+      const matchesCountry = tags.some((tagId) => 
+        activeFilters.length === 0 || activeFilters.includes(tagId)
+      );
+      if (!matchesCountry) return;
+
+      const el = document.createElement('div');
+      el.className = 'country-pin';
+      el.innerHTML = '<i class="fi-br-map-marker" aria-hidden="true"></i>';
+
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (popupRef.current) popupRef.current.remove();
+
+        const bounds = boundsForCities(cities);
+        if (bounds) {
+          map.fitBounds(bounds, { padding: 90, maxZoom: 7, duration: 1200, essential: true });
+        }
+      });
+
+      const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([lon, lat])
+        .addTo(map);
+
+      markersRef.current.push({ marker, element: el, destination: { tags, packages: [] } });
+    });
+
+  }, [matchingPackages, activeFilters, mapLoaded]);
+  
   /* ----------------------------------------------------------------------
      FCIPT3-10: city pins
      When a country fills the view, swap the world-level pins out for
@@ -704,8 +708,15 @@ export default function WorldMap() {
 
     /* World view: keep country pins; matching city pins can also show during search. */
     if (!activeCountry) {
-      markersRef.current.forEach(({ element }) => {
-        if (element) element.style.display = '';
+      markersRef.current.forEach(({ element, destination }) => {
+        if (!element) return;
+        
+        // Check if this destination pin contains any packages matching the active filter/search
+        const hasMatchingPackages = destination.packages 
+          ? destination.packages.some((pkg) => visiblePackagesRef.current.has(pkg))
+          : true; // fallback for country-only pins
+
+        element.style.display = hasMatchingPackages ? '' : 'none';
       });
     } else {
       markersRef.current.forEach(({ element }) => {
