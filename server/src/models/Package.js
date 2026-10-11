@@ -1,5 +1,17 @@
 import mongoose from 'mongoose';
 
+// One day of a package's itinerary (from the "Product Description" column).
+const itineraryDaySchema = new mongoose.Schema(
+  { day: { type: String, default: '' }, title: { type: String, default: '' }, body: { type: String, default: '' } },
+  { _id: false }
+);
+
+// One highlighted inclusion line (from the "Product Inclusions" column).
+const inclusionItemSchema = new mongoose.Schema(
+  { icon: { type: String, default: '' }, title: { type: String, default: '' }, subtitle: { type: String, default: '' } },
+  { _id: false }
+);
+
 // Mirrors the shape client/src/data/packages.json has always used, so the
 // frontend's existing filtering/grouping/tagging logic (buildDestinations,
 // getPackageTags, formatLocationPath, etc.) works unchanged against data
@@ -21,6 +33,17 @@ const packageSchema = new mongoose.Schema(
     wowFactor: { type: String, default: '' },
     fromPrice: { type: Number, default: null },
     image: { type: String, default: '' },
+    // Package detail content, parsed out of the sheet's "Product Description"
+    // and "Product Inclusions" JSON columns. Empty when a row has none (or
+    // its JSON is malformed) - the frontend hides those sections then.
+    summary: { type: String, default: '' },
+    itinerary: { type: [itineraryDaySchema], default: [] },
+    inclusions: {
+      featured: { type: [inclusionItemSchema], default: [] },
+      top: { type: [inclusionItemSchema], default: [] },
+      included: { type: [String], default: [] },
+      excluded: { type: [String], default: [] },
+    },
     // Set/refreshed on every sync run - lets /api/packages report how fresh
     // the data is, and lets a future "remove rows no longer in the sheet"
     // pass find anything that didn't get touched by the latest sync.

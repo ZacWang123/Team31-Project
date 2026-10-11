@@ -322,3 +322,201 @@
 .filter-panel-body {
   margin-top: 12px;
 }
+/* --------------------------------------------------------------------------
+   3. Package detail: itinerary + inclusions
+   (day-by-day itinerary, "What's included", "Not included")
+   -------------------------------------------------------------------------- */
+.modal-backdrop-package .modal-overview-text + .modal-overview-text {
+  margin-top: 10px;
+}
+
+.modal-section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.modal-section-title-row .modal-overview-heading {
+  margin: 0;
+}
+
+.modal-section-count {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fc-text-muted);
+}
+
+.modal-section-toggle-all {
+  background: none;
+  border: none;
+  color: var(--fc-red);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+.modal-section-toggle-all:hover {
+  background: var(--fc-red-soft);
+}
+
+/* Itinerary */
+.itinerary-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.itinerary-day {
+  background: var(--fc-surface);
+  border: 1px solid var(--fc-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.itinerary-day.is-open {
+  border-color: var(--fc-red-border);
+}
+
+.itinerary-day-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--fc-surface-alt);
+  border: none;
+  text-align: left;
+  font: inherit;
+  color: var(--fc-text);
+  cursor: pointer;
+}
+
+.itinerary-day.is-open .itinerary-day-header {
+  background: var(--fc-red-soft);
+}
+
+.itinerary-day-badge {
+  flex-shrink: 0;
+  background: var(--fc-red);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.itinerary-day-title {
+  flex: 1;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.itinerary-day-chevron {
+  color: var(--fc-text-muted);
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+
+.itinerary-day-chevron.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+.itinerary-day-body {
+  margin: 0;
+  padding: 12px 14px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #334155;
+  white-space: pre-line;
+}
+
+/* What's included */
+.inclusion-grid {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.inclusion-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--fc-surface-alt);
+  border: 1px solid var(--fc-border);
+  border-radius: 10px;
+}
+
+.inclusion-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--fc-red-soft);
+  color: var(--fc-red);
+  font-size: 14px;
+}
+
+.inclusion-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--fc-text);
+}
+
+.inclusion-subtitle {
+  font-size: 12px;
+  color: var(--fc-text-muted);
+  line-height: 1.5;
+}
+
+.inclusion-bullets {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #334155;
+}
+
+/* Not included */
+.exclusion-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.exclusion-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #334155;
+}
+
+.exclusion-list i {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--fc-red);
+}

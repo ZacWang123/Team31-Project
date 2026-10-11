@@ -50,6 +50,66 @@ function cleanPrice(raw) {
   return Number.isFinite(num) ? num : null;
 }
 
+// The sheet stores itinerary + inclusions as JSON text inside two cells.
+// Never throw on bad JSON (one malformed cell must not break the whole
+// sync) - return null and let the caller record a warning instead.
+function parseJsonCell(raw) {
+  if (!raw || !String(raw).trim()) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+const text = (v) => (typeof v === 'string' ? v.trim() : '');
+
+// Inclusion items arrive as {icon,title,subtitle} or {icon,label}; normalise
+// both to {icon,title,subtitle}.
+function normaliseInclusionItems(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item) => ({
+      icon: text(item?.icon),
+      title: text(item?.title) || text(item?.label),
+      subtitle: text(item?.subtitle),
+    }))
+    .filter((item) => item.title);
+}
+
+// "inclusions" / "exclusions" are plain string lists (be lenient if an item
+// is an object).
+function normaliseStringList(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item) => (typeof item === 'string' ? item.trim() : text(item?.title) || text(item?.label) || text(item?.text)))
+    .filter(Boolean);
+}
+
+function parseDescription(raw) {
+  const data = parseJsonCell(raw);
+  if (!data) return { summary: '', itinerary: [], ok: !raw || !String(raw).trim() };
+  const summary = Array.isArray(data.summary) ? data.summary.map(text).filter(Boolean).join('\n\n') : text(data.summary);
+  const itinerary = (Array.isArray(data.itinerary) ? data.itinerary : [])
+    .map((d) => ({ day: String(d?.day ?? '').trim(), title: text(d?.title), body: text(d?.body) }))
+    .filter((d) => d.title || d.body);
+  return { summary, itinerary, ok: true };
+}
+
+function parseInclusions(raw) {
+  const data = parseJsonCell(raw);
+  if (!data) return { inclusions: { featured: [], top: [], included: [], excluded: [] }, ok: !raw || !String(raw).trim() };
+  return {
+    inclusions: {
+      featured: normaliseInclusionItems(data.featuredInclusions),
+      top: normaliseInclusionItems(data.topInclusions),
+      included: normaliseStringList(data.inclusions),
+      excluded: normaliseStringList(data.exclusions),
+    },
+    ok: true,
+  };
+}
+
 /**
  * Turns one raw Google Sheet row (keyed by Flight Centre's own column
  * names) into the enriched shape the frontend expects. Returns null for
@@ -71,8 +131,15 @@ export function transformRow(row) {
   const rawImagePath = row['Supplier Product Image (URL or File Ref)'] || '';
   const location = locationEnrichment[packageName] || { city: '', place: '' };
 
+  const description = parseDescription(row['Product Description']);
+  const inclusionsParsed = parseInclusions(row['Product Inclusions']);
+  const warnings = [];
+  if (!description.ok) warnings.push('"Product Description" is not valid JSON - itinerary/summary left empty (fix the cell in the sheet)');
+  if (!inclusionsParsed.ok) warnings.push('"Product Inclusions" is not valid JSON - inclusions left empty (fix the cell in the sheet)');
+
   return {
     skipped: false,
+    warnings,
     doc: {
       packageName,
       destination,
@@ -86,6 +153,9 @@ export function transformRow(row) {
       wowFactor: (row['Short Description (WOW Factor)'] || '').trim(),
       fromPrice: cleanPrice(row['Advertised From Price(FCL May Adjust)']),
       image: buildImageUrl(rawImagePath) || FALLBACK_IMAGE,
+      summary: description.summary,
+      itinerary: description.itinerary,
+      inclusions: inclusionsParsed.inclusions,
     },
   };
 }

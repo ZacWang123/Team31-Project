@@ -12,6 +12,7 @@ export async function runSync({ sheetId, apiKey, range }) {
   const rawRows = await fetchSheetRows({ sheetId, apiKey, range });
 
   const skipped = [];
+  const warnings = [];
   let upserted = 0;
 
   for (const row of rawRows) {
@@ -19,6 +20,9 @@ export async function runSync({ sheetId, apiKey, range }) {
     if (result.skipped) {
       skipped.push({ row: row['Package Offer Name'] || row['Destination'] || '(unnamed row)', reason: result.reason });
       continue;
+    }
+    for (const message of result.warnings || []) {
+      warnings.push({ row: result.doc.packageName, message });
     }
 
     await Package.findOneAndUpdate(
@@ -34,6 +38,7 @@ export async function runSync({ sheetId, apiKey, range }) {
     rowsRead: rawRows.length,
     upserted,
     skipped,
+    warnings,
     tookMs: Date.now() - startedAt,
     syncedAt: new Date().toISOString(),
   };
