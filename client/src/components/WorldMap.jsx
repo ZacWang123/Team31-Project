@@ -15,6 +15,7 @@ import TravelProfileModal from './TravelProfileModal';
 import PackageDetailModal from './PackageDetailModal';
 import StatusBanner from './StatusBanner';
 import TopBar from './TopBar';
+import pinIcon from '../assets/location-pin.png';
 import { TAG_RULES, getPackageTags, packageCountry, hasCoordinates, matchesPackage } from '../utils/tagUtils';
 import { resolveIso3, boundsForCities, buildDestinations, buildCityIndex } from '../utils/mapDataBuilders';
 
@@ -580,7 +581,7 @@ export default function WorldMap() {
 
       const el = document.createElement('div');
       el.className = 'country-pin';
-      el.innerHTML = '<i class="fi-br-map-marker" aria-hidden="true"></i>';
+      el.innerHTML = `<img src="${pinIcon}" alt="" aria-hidden="true" draggable="false" />`;
 
       el.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -666,7 +667,7 @@ export default function WorldMap() {
 
       const el = document.createElement('div');
       el.className = 'country-pin';
-      el.innerHTML = '<i class="fi-br-map-marker" aria-hidden="true"></i>';
+      el.innerHTML = `<img src="${pinIcon}" alt="" aria-hidden="true" draggable="false" />`;
 
       el.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -748,7 +749,7 @@ export default function WorldMap() {
       el.setAttribute('tabindex', '0');
       el.setAttribute('aria-label', `${city.name}, ${visiblePkgs.length} packages`);
       el.innerHTML = `
-        <i class="fi-br-map-marker city-pin-marker" aria-hidden="true"></i>
+        <img class="city-pin-marker" src="${pinIcon}" alt="" aria-hidden="true" draggable="false" />
         <span class="city-pin-label">
           <span class="city-pin-name"></span>
           <span class="city-pin-count"></span>

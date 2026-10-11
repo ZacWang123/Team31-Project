@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import PackageSearch from './PackageSearch'; 
 import { FILTER_OPTIONS } from '../constants/mapConstants';
+import pinIcon from '../assets/location-pin.png';
 
 
 export default function FilterPanel({
@@ -24,7 +25,7 @@ export default function FilterPanel({
       {/* Header Row: Keeps the title and toggle button always visible */}
       <div className="filter-panel-header-row">
         <div className="explore-heading">
-          <i className="fi-br-map-marker" aria-hidden="true" />
+          <img src={pinIcon} alt="" aria-hidden="true" draggable="false" />
           <span>Explore destinations</span>
         </div>
         

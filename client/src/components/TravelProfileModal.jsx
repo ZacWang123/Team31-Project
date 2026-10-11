@@ -1,7 +1,8 @@
 // src/components/TravelProfileModal.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { FILTER_OPTIONS } from '../constants/mapConstants';
 import { formatLocationName } from '../utils/locationUtils';
+import pinIcon from '../assets/location-pin.png';
 
 export default function TravelProfileModal({
   isOpen,
@@ -27,12 +28,16 @@ export default function TravelProfileModal({
   handleSaveProfile,
   NOMINATED_STORE_EMAIL = 'store@flightcentre.com.au',
 }) {
+  const [openSections, setOpenSections] = useState({ prefs: true, viewed: true, favs: true });
+  const toggleSection = (key) => setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+
   if (!isOpen) return null;
 
   return (
     <div className="modal-backdrop-profile" onClick={onClose}>
       <div className="modal-content-box profile-modal-wide" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header-container flight-centre-red-header">
+        <div className="modal-header-container profile-header-light">
+          <i className="fi-rr-plane profile-header-decoration" aria-hidden="true" />
           <div className="profile-brand-title">
             <span className="fc-logo-text">FLIGHT CENTRE</span>
             <span className="fc-sub-title">TRAVEL GROUP</span>
@@ -47,27 +52,39 @@ export default function TravelProfileModal({
           {/* COLUMN 1: Preferences, Recently Viewed & Activities */}
           <div className="profile-col-left">
             <div className="profile-section-block">
-              <div className="profile-section-header">Your Travel Preferences <span>▼</span></div>
-              <div className="profile-section-content">
-                <p>Climate: <span className="placeholder-text">Not specified</span></p>
-                <p>Price Range: <span className="placeholder-text">Not specified</span></p>
-                <p>Travel Style: <span className="placeholder-text">Not specified</span></p>
-              </div>
+              <button type="button" className="profile-section-header" aria-expanded={openSections.prefs} onClick={() => toggleSection('prefs')}>
+                <span className="profile-section-icon icon-navy"><i className="fi-rr-settings-sliders" aria-hidden="true" /></span>
+                <span className="profile-section-title">Your Travel Preferences</span>
+                <i className={`fi-rr-angle-down profile-section-chevron ${openSections.prefs ? '' : 'is-collapsed'}`} aria-hidden="true" />
+              </button>
+              {openSections.prefs && <div className="profile-section-content">
+                <div className="pref-row"><i className="fi-rr-sun" aria-hidden="true" /><span><strong>Climate:</strong> <span className="placeholder-text">Not specified</span></span><i className="fi-rr-angle-right" aria-hidden="true" /></div>
+                <div className="pref-row"><i className="fi-rr-coins" aria-hidden="true" /><span><strong>Price Range:</strong> <span className="placeholder-text">Not specified</span></span><i className="fi-rr-angle-right" aria-hidden="true" /></div>
+                <div className="pref-row"><i className="fi-rr-suitcase-alt" aria-hidden="true" /><span><strong>Travel Style:</strong> <span className="placeholder-text">Not specified</span></span><i className="fi-rr-angle-right" aria-hidden="true" /></div>
+              </div>}
             </div>
 
             <div className="profile-section-block">
-              <div className="profile-section-header">Your Recently Viewed <span>▼</span></div>
-              <div className="profile-section-content">
+              <button type="button" className="profile-section-header" aria-expanded={openSections.viewed} onClick={() => toggleSection('viewed')}>
+                <span className="profile-section-icon icon-rose"><i className="fi-rr-heart" aria-hidden="true" /></span>
+                <span className="profile-section-title">Your Recently Viewed</span>
+                <i className={`fi-rr-angle-down profile-section-chevron ${openSections.viewed ? '' : 'is-collapsed'}`} aria-hidden="true" />
+              </button>
+              {openSections.viewed && <div className="profile-section-content">
                 {viewedPackages.slice(0, 3).map((pkg, i) => (
                   <div key={i} className="mini-list-item">{pkg.packageName || pkg.title}</div>
                 ))}
                 {viewedPackages.length === 0 && <p className="placeholder-text">No recently viewed packages</p>}
-              </div>
+              </div>}
             </div>
 
             <div className="profile-section-block">
-              <div className="profile-section-header">Your Favourite Activities <span>▼</span></div>
-              <div className="profile-section-content">
+              <button type="button" className="profile-section-header" aria-expanded={openSections.favs} onClick={() => toggleSection('favs')}>
+                <span className="profile-section-icon icon-rose"><i className="fi-rr-heart" aria-hidden="true" /></span>
+                <span className="profile-section-title">Your Favourite Activities</span>
+                <i className={`fi-rr-angle-down profile-section-chevron ${openSections.favs ? '' : 'is-collapsed'}`} aria-hidden="true" />
+              </button>
+              {openSections.favs && <div className="profile-section-content">
                 {topSavedFilters.length > 0 ? (
                   topSavedFilters.map((tagId) => {
                     const filterObj = FILTER_OPTIONS.find((f) => f.id === tagId);
@@ -76,16 +93,19 @@ export default function TravelProfileModal({
                 ) : (
                   <p className="placeholder-text">Save packages to see favourite activities</p>
                 )}
-              </div>
+              </div>}
             </div>
           </div>
 
           {/* COLUMN 2: Destination Shortlist */}
           <div className="profile-col-middle">
-            <h3>Your Destination Shortlist</h3>
+            <h3 className="profile-col-heading"><img src={pinIcon} alt="" aria-hidden="true" draggable="false" /> Your Destination Shortlist</h3>
             <div className="shortlist-scroll-area">
               {savedPackages.length === 0 ? (
-                <p className="empty-shortlist">Your shortlist is empty. Save packages from the map to see them here.</p>
+                <div className="empty-shortlist-state">
+                  <span className="empty-shortlist-icon"><i className="fi-rr-map-marker" aria-hidden="true" /></span>
+                  <p className="empty-shortlist">Your shortlist is empty. Save packages from the map to see them here.</p>
+                </div>
               ) : (
                 savedPackages.map((pkg, idx) => {
                   const imgSrc = pkg.imageUrl || pkg.image || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80';
@@ -115,7 +135,7 @@ export default function TravelProfileModal({
 
           {/* COLUMN 3: Save Your Profile Form */}
           <div className="profile-col-right">
-            <h3>Save Your Profile</h3>
+            <h3 className="profile-col-heading"><i className="fi-rr-user" aria-hidden="true" /> Save Your Profile</h3>
             <p className="save-form-instruction">
               Enter your details below to receive a copy of your travel profile or connect with a Flight Centre travel expert.
             </p>

@@ -85,29 +85,31 @@ html, body {
   border-top-color: #0f172a !important;
 }
 
-/* Teardrop pin (Flaticon fi-br-map-marker glyph) instead of a plain dot -
-   anchor: 'bottom' on the Marker (see WorldMap.jsx) points the icon's tip
-   at the exact coordinate, so no manual centering transform is needed
-   here the way the old circle dot required. */
+/* Red teardrop pin image (client/src/assets/location-pin.png, a Flaticon
+   free icon). anchor: 'bottom' on the Marker (see WorldMap.jsx) points the
+   image's tip at the exact coordinate. */
 .country-pin {
   cursor: pointer;
   z-index: 10;
 }
 
-/* Scale the icon itself on hover, not .country-pin - MapLibre sets an
+/* Scale the image itself on hover, not .country-pin - MapLibre sets an
    inline transform on .country-pin for positioning, and an inline style
    always wins over a stylesheet rule (:hover included), so a transform
-   on .country-pin itself would silently never apply. */
-.country-pin i {
+   on .country-pin itself would silently never apply. transform-origin is
+   the bottom so the tip stays on its coordinate while it grows. */
+.country-pin img {
   display: block;
-  font-size: 34px;
-  line-height: 1;
-  color: #d92228;
+  width: 34px;
+  height: 34px;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+  transform-origin: 50% 100%;
   transition: transform 0.15s ease;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
-.country-pin:hover i {
+.country-pin:hover img {
   transform: scale(1.1);
 }
 
@@ -336,8 +338,11 @@ html, body {
   text-shadow: 0 1px 3px rgba(255, 255, 255, 0.8);
 }
 
-.top-bar-logo i {
-  font-size: 22px;
+.top-bar-logo img {
+  width: 26px;
+  height: 26px;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .view-profile-btn {
@@ -845,9 +850,11 @@ html, body {
   font-weight: 700;
 }
 
-.explore-heading i {
-  color: #d92228;
-  font-size: 18px;
+.explore-heading img {
+  width: 22px;
+  height: 22px;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .filter-header {
@@ -979,16 +986,17 @@ html, body {
   }
 }
 
-/* ---- the dot ---- */
-/* Same teardrop glyph as .country-pin, just smaller since it sits next
+/* ---- the pin ---- */
+/* Same teardrop image as .country-pin, just smaller since it sits next
    to a name+count label instead of standing alone. */
 .city-pin-marker {
   flex-shrink: 0;
-  font-size: 20px;
-  line-height: 1;
-  color: #d92228;
+  width: 24px;
+  height: 24px;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
   transition: transform 0.18s ease, filter 0.18s ease;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 /* ---- the label pill ---- */
@@ -1045,8 +1053,7 @@ html, body {
 
 /* ---- currently open ---- */
 .city-pin.is-active .city-pin-marker {
-  transform: scale(1.18);
-  color: #f8fafc;
+  transform: scale(1.25);
   filter: drop-shadow(0 0 8px rgba(217, 34, 40, 1));
 }
 
@@ -1140,49 +1147,96 @@ html, body {
   z-index: 1000;
 }
 
+/* Travel Profile modal - light theme (white cards on a light grey page,
+   Flight Centre red accents). Close-button styling below is scoped to
+   .profile-header-light so it can't leak into the package-detail modal,
+   which has its own scoped rules in PackagePopupTheme.css. */
 .profile-modal-wide {
-  background-color: #d92228; /* Flight Centre Red */
+  background-color: #f1f5f9;
   width: 90vw;
   max-width: 1200px;
   height: 85vh;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  color: #ffffff;
+  color: #0f172a;
   overflow: hidden;
+  border: none;
 }
 
-.flight-centre-red-header {
+.profile-header-light {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 16px 24px 16px 40px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  overflow: hidden;
+  color: #0f172a;
+}
+
+/* Red corner flag, top-left */
+.profile-header-light::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 64px 64px 0 0;
+  border-color: #d92228 transparent transparent transparent;
+}
+
+.profile-header-decoration {
+  position: absolute;
+  right: 80px;
+  top: 50%;
+  transform: translateY(-50%) rotate(-20deg);
+  font-size: 72px;
+  color: #d92228;
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+.profile-brand-title {
+  position: relative;
 }
 
 .profile-brand-title h2 {
   margin: 0;
   font-size: 1.5rem;
+  color: #0f172a;
 }
 
 .fc-logo-text {
-  font-weight: bold;
+  font-weight: 800;
   font-size: 0.8rem;
   letter-spacing: 1px;
+  color: #d92228;
 }
 
 .fc-sub-title {
   display: block;
   font-size: 0.6rem;
-  opacity: 0.8;
+  color: #64748b;
+  letter-spacing: 0.5px;
 }
 
-.modal-close-btn {
+.profile-header-light .modal-close-btn {
+  position: relative;
   background: none;
   border: none;
-  color: #fff;
+  color: #475569;
   font-size: 1.5rem;
   cursor: pointer;
+  border-radius: 8px;
+}
+
+.profile-header-light .modal-close-btn:hover {
+  color: #0f172a;
+  background: #f1f5f9;
 }
 
 /* Three Column Layout Engine */
@@ -1202,31 +1256,125 @@ html, body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: rgba(0, 0, 0, 0.15);
-  border-radius: 8px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
   padding: 16px;
   overflow-y: auto;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.profile-col-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px 0;
+  color: #0f172a;
+}
+
+.profile-col-heading i {
+  color: #d92228;
+  font-size: 0.9em;
+}
+
+.profile-col-heading img {
+  width: 22px;
+  height: 22px;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 /* Left Column Elements */
 .profile-section-block {
   margin-bottom: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid #f1f5f9;
   padding-bottom: 12px;
 }
 
 .profile-section-header {
+  font: inherit;
   font-weight: bold;
   display: flex;
-  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
   cursor: pointer;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  color: #0f172a;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  text-align: left;
+}
+
+.profile-section-header:focus-visible {
+  outline: 2px solid #d92228;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.profile-section-title {
+  flex: 1;
+}
+
+.profile-section-chevron {
+  color: #94a3b8;
+  font-size: 0.85em;
+  transition: transform 0.2s ease;
+}
+
+.profile-section-chevron.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+.profile-section-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.profile-section-icon.icon-navy {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.profile-section-icon.icon-rose {
+  background: #fee2e2;
+  color: #d92228;
+}
+
+.pref-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  color: #334155;
+  font-size: 0.85rem;
+}
+
+.pref-row i:first-child {
+  color: #94a3b8;
+  width: 16px;
+  text-align: center;
+}
+
+.pref-row > span {
+  flex: 1;
+}
+
+.pref-row i:last-child {
+  color: #cbd5e1;
 }
 
 .mini-list-item {
   font-size: 0.9rem;
   padding: 4px 0;
-  opacity: 0.9;
+  color: #334155;
 }
 
 /* Middle Column Shortlist */
@@ -1237,11 +1385,38 @@ html, body {
   margin-top: 10px;
 }
 
+.empty-shortlist-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: 32px 12px;
+  color: #64748b;
+}
+
+.empty-shortlist-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #fee2e2;
+  color: #d92228;
+  font-size: 24px;
+}
+
+.empty-shortlist {
+  margin: 0;
+}
+
 .shortlist-card {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   padding: 8px;
   position: relative;
 }
@@ -1257,11 +1432,13 @@ html, body {
 .shortlist-info h4 {
   margin: 0;
   font-size: 0.9rem;
+  color: #0f172a;
 }
 
 .shortlist-dest-label {
   font-size: 0.75rem;
-  opacity: 0.7;
+  color: #d92228;
+  font-weight: 600;
 }
 
 .shortlist-remove-btn {
@@ -1270,18 +1447,18 @@ html, body {
   right: 8px;
   background: none;
   border: none;
-  color: #fff;
+  color: #94a3b8;
   cursor: pointer;
 }
 
-/* Right Column Form */
-.profile-col-right h3 {
-  margin-top: 0;
+.shortlist-remove-btn:hover {
+  color: #d92228;
 }
 
+/* Right Column Form */
 .save-form-instruction {
   font-size: 0.85rem;
-  opacity: 0.9;
+  color: #64748b;
   margin-bottom: 16px;
 }
 
@@ -1289,11 +1466,16 @@ html, body {
   width: 100%;
   padding: 10px;
   margin-bottom: 12px;
-  border-radius: 4px;
-  border: none;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
   background: #fff;
-  color: #333;
+  color: #0f172a;
   box-sizing: border-box;
+}
+
+.profile-form-input:focus {
+  outline: none;
+  border-color: #d92228;
 }
 
 .form-separator {
@@ -1301,7 +1483,7 @@ html, body {
   font-size: 0.8rem;
   font-weight: bold;
   margin: 4px 0 12px 0;
-  opacity: 0.8;
+  color: #94a3b8;
 }
 
 .profile-checkbox-group {
@@ -1309,26 +1491,27 @@ html, body {
   flex-direction: column;
   gap: 8px;
   font-size: 0.85rem;
+  color: #334155;
   margin-bottom: 20px;
 }
 
 .finish-session-btn {
   width: 100%;
   padding: 12px;
-  background-color: #fff;
-  color: #d92228;
+  background-color: #d92228;
+  color: #ffffff;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   font-weight: bold;
   cursor: pointer;
 }
 
 .finish-session-btn:hover {
-  background-color: #f0f0f0;
+  background-color: #b91c1c;
 }
 
 .placeholder-text {
-  opacity: 0.6;
+  color: #94a3b8;
   font-style: italic;
   font-size: 0.85rem;
 }
@@ -1449,13 +1632,13 @@ html, body {
 .package-search-empty { margin: 0; padding: 15px; font-size: 13px; color: #64748b; }
 /* Cyan glow (kept distinct from the pins' own red) so a search match
    pops visually instead of blending into every other pin on the map. */
-.country-pin.is-search-match i {
-  color: #38bdf8;
-  filter: drop-shadow(0 0 10px #38bdf8);
+.country-pin.is-search-match img {
+  transform: scale(1.2);
+  filter: drop-shadow(0 0 4px #38bdf8) drop-shadow(0 0 10px #38bdf8);
 }
 .city-pin.is-search-match .city-pin-marker {
-  color: #38bdf8;
-  filter: drop-shadow(0 0 8px #38bdf8);
+  transform: scale(1.2);
+  filter: drop-shadow(0 0 4px #38bdf8) drop-shadow(0 0 8px #38bdf8);
 }
 .city-pin.is-search-match .city-pin-label { border-color: #38bdf8; }
 
@@ -1488,8 +1671,9 @@ html, body {
     gap: 6px;
   }
 
-  .top-bar-logo i {
-    font-size: 18px;
+  .top-bar-logo img {
+    width: 22px;
+    height: 22px;
   }
 
   .view-profile-btn {
