@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import cityPackagesData from '../data/cityPackages.json';
 import PackageSearch from './PackageSearch';
 import { useTravelProfile } from '../context/TravelProfileContext';
 import './WorldMap.css';
@@ -773,7 +772,7 @@ export default function WorldMap() {
 
       const handleZoom = () => updateScale();
       map.on('zoom', handleZoom);
-      
+
       // Anchor the marker directly to the bottom tip of the container element
       const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([city.lon, city.lat])

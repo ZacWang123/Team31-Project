@@ -1,8 +1,30 @@
 // src/components/TravelProfileModal.jsx
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FILTER_OPTIONS } from '../constants/mapConstants';
 import { formatLocationName } from '../utils/locationUtils';
+import { getPackageTags } from '../utils/tagUtils';
 import pinIcon from '../assets/location-pin.png';
+
+// Helper parsers for price and duration extraction
+function parseDuration(pkg) {
+  if (!pkg) return null;
+  const rawText = String(pkg.duration || pkg.packageName || pkg.summary || '');
+  const match = rawText.match(/(\d+)\s*(?:night|day|n|d)/i);
+  if (match) return parseInt(match[1], 10);
+  if (Array.isArray(pkg.itinerary) && pkg.itinerary.length > 0) {
+    return pkg.itinerary.length;
+  }
+  return null;
+}
+
+function parsePrice(pkg) {
+  if (!pkg) return null;
+  if (typeof pkg.fromPrice === 'number') return pkg.fromPrice;
+  const rawPrice = pkg.fromPrice ?? pkg.price;
+  if (rawPrice === undefined || rawPrice === null || rawPrice === '') return null;
+  const cleaned = String(rawPrice).replace(/[^0-9.]/g, '');
+  return cleaned ? parseFloat(cleaned) : null;
+}
 
 export default function TravelProfileModal({
   isOpen,
@@ -31,6 +53,39 @@ export default function TravelProfileModal({
   const [openSections, setOpenSections] = useState({ prefs: true, viewed: true, favs: true });
   const toggleSection = (key) => setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
+  // Calculate Price Range from saved packages
+  const { priceRangeText, isPriceSpecified } = useMemo(() => {
+    const prices = savedPackages.map(parsePrice).filter((p) => typeof p === 'number' && !isNaN(p));
+    if (prices.length === 0) return { priceRangeText: 'Not specified', isPriceSpecified: false };
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const text = min === max ? `$${min.toLocaleString('en-AU')}` : `$${min.toLocaleString('en-AU')} - $${max.toLocaleString('en-AU')}`;
+    return { priceRangeText: text, isPriceSpecified: true };
+  }, [savedPackages]);
+
+  // Calculate Duration Range from saved packages
+  const { durationRangeText, isDurationSpecified } = useMemo(() => {
+    const durations = savedPackages.map(parseDuration).filter((d) => typeof d === 'number' && !isNaN(d));
+    if (durations.length === 0) return { durationRangeText: 'Not specified', isDurationSpecified: false };
+    const min = Math.min(...durations);
+    const max = Math.max(...durations);
+    const text = min === max ? `${min} Days/Nights` : `${min} - ${max} Days/Nights`;
+    return { durationRangeText: text, isDurationSpecified: true };
+  }, [savedPackages]);
+
+  // Extract activity tags directly from saved packages (e.g. skiing, adventure, etc.)
+  const packageActivities = useMemo(() => {
+    const tagSet = new Set();
+    savedPackages.forEach((pkg) => {
+      const tags = getPackageTags(pkg);
+      tags.forEach((t) => tagSet.add(t));
+    });
+    return Array.from(tagSet).map((tagId) => {
+      const found = FILTER_OPTIONS.find((f) => f.id === tagId);
+      return found ? found.label : tagId;
+    });
+  }, [savedPackages]);
+
   if (!isOpen) return null;
 
   return (
@@ -58,9 +113,16 @@ export default function TravelProfileModal({
                 <i className={`fi-rr-angle-down profile-section-chevron ${openSections.prefs ? '' : 'is-collapsed'}`} aria-hidden="true" />
               </button>
               {openSections.prefs && <div className="profile-section-content">
-                <div className="pref-row"><i className="fi-rr-sun" aria-hidden="true" /><span><strong>Climate:</strong> <span className="placeholder-text">Not specified</span></span><i className="fi-rr-angle-right" aria-hidden="true" /></div>
-                <div className="pref-row"><i className="fi-rr-coins" aria-hidden="true" /><span><strong>Price Range:</strong> <span className="placeholder-text">Not specified</span></span><i className="fi-rr-angle-right" aria-hidden="true" /></div>
-                <div className="pref-row"><i className="fi-rr-suitcase-alt" aria-hidden="true" /><span><strong>Travel Style:</strong> <span className="placeholder-text">Not specified</span></span><i className="fi-rr-angle-right" aria-hidden="true" /></div>
+                <div className="pref-row">
+                  <i className="fi-rr-coins" aria-hidden="true" />
+                  <span><strong>Price Range:</strong> <span className={isPriceSpecified ? '' : 'placeholder-text'}>{priceRangeText}</span></span>
+                  <i className="fi-rr-angle-right" aria-hidden="true" />
+                </div>
+                <div className="pref-row">
+                  <i className="fi-rr-calendar" aria-hidden="true" />
+                  <span><strong>Duration:</strong> <span className={isDurationSpecified ? '' : 'placeholder-text'}>{durationRangeText}</span></span>
+                  <i className="fi-rr-angle-right" aria-hidden="true" />
+                </div>
               </div>}
             </div>
 
@@ -85,11 +147,10 @@ export default function TravelProfileModal({
                 <i className={`fi-rr-angle-down profile-section-chevron ${openSections.favs ? '' : 'is-collapsed'}`} aria-hidden="true" />
               </button>
               {openSections.favs && <div className="profile-section-content">
-                {topSavedFilters.length > 0 ? (
-                  topSavedFilters.map((tagId) => {
-                    const filterObj = FILTER_OPTIONS.find((f) => f.id === tagId);
-                    return <div key={tagId} className="mini-list-item">{filterObj ? filterObj.label : tagId}</div>;
-                  })
+                {packageActivities.length > 0 ? (
+                  packageActivities.map((label, idx) => (
+                    <div key={idx} className="mini-list-item">{label}</div>
+                  ))
                 ) : (
                   <p className="placeholder-text">Save packages to see favourite activities</p>
                 )}
