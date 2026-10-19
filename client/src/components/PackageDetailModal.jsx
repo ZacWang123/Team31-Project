@@ -147,7 +147,7 @@ export default function PackageDetailModal({
             />
             {selectedPackage.fromPrice && (
               <span className="modal-hero-price">
-                From \${selectedPackage.fromPrice.toLocaleString('en-AU')}
+                From ${selectedPackage.fromPrice.toLocaleString('en-AU')}
               </span>
             )}
           </div>
