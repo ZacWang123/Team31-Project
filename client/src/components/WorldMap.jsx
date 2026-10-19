@@ -693,7 +693,12 @@ export default function WorldMap() {
     const map = mapInstanceRef.current;
     if (!map || !mapLoaded) return;
 
-    cityMarkersRef.current.forEach(({ marker }) => marker.remove());
+    cityMarkersRef.current.forEach(({ marker, handleZoom }) => {
+      if (handleZoom && mapInstanceRef.current) {
+        mapInstanceRef.current.off('zoom', handleZoom);
+      }
+      marker.remove();
+    });
     cityMarkersRef.current = [];
 
     if (cityPopupRef.current) {
@@ -739,18 +744,36 @@ export default function WorldMap() {
       el.setAttribute('tabindex', '0');
       el.setAttribute('aria-label', `${city.name}, ${visiblePkgs.length} packages`);
 
-      // Clean HTML structure letting CSS handle the pill label floating above the pin
+      // 1. Wrap contents in .city-pin-inner so MapLibre handles outer positioning safely
       el.innerHTML = `
-        <span class="city-pin-label">
-          <span class="city-pin-name"></span>
-          <span class="city-pin-count"></span>
-        </span>
-        <img class="city-pin-marker" src="${pinIcon}" alt="" aria-hidden="true" draggable="false" />
+        <div class="city-pin-inner">
+          <span class="city-pin-label">
+            <span class="city-pin-name"></span>
+            <span class="city-pin-count"></span>
+          </span>
+          <img class="city-pin-marker" src="${pinIcon}" alt="" aria-hidden="true" draggable="false" />
+        </div>
       `;
 
       el.querySelector('.city-pin-name').textContent = city.name;
       el.querySelector('.city-pin-count').textContent = String(visiblePkgs.length);
 
+      const innerEl = el.querySelector('.city-pin-inner');
+
+      // 2. Scale ONLY the inner element on zoom
+      const updateScale = () => {
+        if (!mapInstanceRef.current || !innerEl) return;
+        const z = mapInstanceRef.current.getZoom();
+        const scale = Math.min(1.6, Math.max(0.7, 0.7 + (z - 3) * 0.18));
+        innerEl.style.transform = `scale(${scale})`;
+        innerEl.style.transformOrigin = 'bottom center';
+      };
+
+      updateScale();
+
+      const handleZoom = () => updateScale();
+      map.on('zoom', handleZoom);
+      
       // Anchor the marker directly to the bottom tip of the container element
       const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([city.lon, city.lat])
@@ -839,7 +862,7 @@ export default function WorldMap() {
         }
       });
 
-      cityMarkersRef.current.push({ marker, element: el, city });
+      cityMarkersRef.current.push({ marker, element: el, city, handleZoom });
     });
   }, [activeCountry, normalizedSearch, matchingPackages, mapLoaded]);
 

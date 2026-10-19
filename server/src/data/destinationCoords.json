@@ -7,6 +7,22 @@
     "type": "continent",
     "country_code": null
   },
+  "Amsterdam": {
+    "query": "Amsterdam, Netherlands",
+    "lat": 52.3676,
+    "lon": 4.9041,
+    "display_name": "Amsterdam, Netherlands",
+    "type": "city",
+    "country_code": "nl"
+  },
+  "Athens": {
+    "query": "Athens, Greece",
+    "lat": 37.9838,
+    "lon": 23.7275,
+    "display_name": "Athens, Greece",
+    "type": "city",
+    "country_code": "gr"
+  },
   "Aspen": {
     "query": "Aspen, Colorado, USA",
     "lat": 39.1911128,
@@ -14,6 +30,54 @@
     "display_name": "Aspen, Pitkin County, Colorado, United States",
     "type": "administrative",
     "country_code": "us"
+  },
+  "Auckland": {
+    "query": "Auckland, New Zealand",
+    "lat": -36.8485,
+    "lon": 174.7633,
+    "display_name": "Auckland, New Zealand",
+    "type": "city",
+    "country_code": "nz"
+  },
+  "Bali": {
+    "query": "Bali, Indonesia",
+    "lat": -8.4095,
+    "lon": 115.1889,
+    "display_name": "Bali, Indonesia",
+    "type": "island",
+    "country_code": "id"
+  },
+  "Barcelona": {
+    "query": "Barcelona, Spain",
+    "lat": 41.3851,
+    "lon": 2.1734,
+    "display_name": "Barcelona, Spain",
+    "type": "city",
+    "country_code": "es"
+  },
+  "Beijing": {
+    "query": "Beijing, China",
+    "lat": 39.9042,
+    "lon": 116.4074,
+    "display_name": "Beijing, China",
+    "type": "city",
+    "country_code": "cn"
+  },
+  "Brisbane": {
+    "query": "Brisbane, Queensland, Australia",
+    "lat": -27.4698,
+    "lon": 153.0251,
+    "display_name": "Brisbane, Queensland, Australia",
+    "type": "city",
+    "country_code": "au"
+  },
+  "Cairo": {
+    "query": "Cairo, Egypt",
+    "lat": 30.0444,
+    "lon": 31.2357,
+    "display_name": "Cairo, Egypt",
+    "type": "city",
+    "country_code": "eg"
   },
   "Canada": {
     "query": "Canada",
@@ -23,11 +87,19 @@
     "type": "administrative",
     "country_code": "ca"
   },
+  "Cairns": {
+    "query": "Cairns, Queensland, Australia",
+    "lat": -16.9186,
+    "lon": 145.7781,
+    "display_name": "Cairns, Australia",
+    "type": "city",
+    "country_code": "au"
+  },
   "China": {
     "query": "China",
     "lat": 34.5412252,
     "lon": 108.9237067,
-    "display_name": "\u4e2d\u56fd",
+    "display_name": "中国",
     "type": "administrative",
     "country_code": "cn"
   },
@@ -43,9 +115,41 @@
     "query": "Doha, Qatar",
     "lat": 25.3108807,
     "lon": 51.5081812,
-    "display_name": "\u0627\u0644\u062f\u0648\u062d\u0629, \u0642\u0637\u0631",
+    "display_name": "الدوحة, قطر",
     "type": "administrative",
     "country_code": "qa"
+  },
+  "Dubai": {
+    "query": "Dubai, United Arab Emirates",
+    "lat": 25.2048,
+    "lon": 55.2708,
+    "display_name": "Dubai, United Arab Emirates",
+    "type": "city",
+    "country_code": "ae"
+  },
+  "Dublin": {
+    "query": "Dublin, Ireland",
+    "lat": 53.3498,
+    "lon": -6.2603,
+    "display_name": "Dublin, Ireland",
+    "type": "city",
+    "country_code": "ie"
+  },
+  "Edinburgh": {
+    "query": "Edinburgh, United Kingdom",
+    "lat": 55.9533,
+    "lon": -3.1883,
+    "display_name": "Edinburgh, Scotland, UK",
+    "type": "city",
+    "country_code": "gb"
+  },
+  "Egypt": {
+    "query": "Egypt",
+    "lat": 26.820553,
+    "lon": 30.802498,
+    "display_name": "Egypt",
+    "type": "administrative",
+    "country_code": "eg"
   },
   "Fiji": {
     "query": "Fiji",
@@ -55,6 +159,30 @@
     "type": "administrative",
     "country_code": "fj"
   },
+  "Florence": {
+    "query": "Florence, Italy",
+    "lat": 43.7696,
+    "lon": 11.2558,
+    "display_name": "Florence, Italy",
+    "type": "city",
+    "country_code": "it"
+  },
+  "France": {
+    "query": "France",
+    "lat": 46.227638,
+    "lon": 2.213749,
+    "display_name": "France",
+    "type": "administrative",
+    "country_code": "fr"
+  },
+  "Hong Kong": {
+    "query": "Hong Kong",
+    "lat": 22.3193,
+    "lon": 114.1694,
+    "display_name": "Hong Kong",
+    "type": "administrative",
+    "country_code": "hk"
+  },
   "India": {
     "query": "India",
     "lat": 22.3511148,
@@ -63,21 +191,93 @@
     "type": "administrative",
     "country_code": "in"
   },
+  "Italy": {
+    "query": "Italy",
+    "lat": 41.87194,
+    "lon": 12.56738,
+    "display_name": "Italy",
+    "type": "administrative",
+    "country_code": "it"
+  },
   "Japan": {
     "query": "Japan",
     "lat": 36.5748441,
     "lon": 139.2394179,
-    "display_name": "\u65e5\u672c",
+    "display_name": "日本",
     "type": "administrative",
     "country_code": "jp"
+  },
+  "Kyoto": {
+    "query": "Kyoto, Japan",
+    "lat": 35.0116,
+    "lon": 135.7681,
+    "display_name": "Kyoto, Japan",
+    "type": "city",
+    "country_code": "jp"
+  },
+  "Las Vegas": {
+    "query": "Las Vegas, Nevada, USA",
+    "lat": 36.1699,
+    "lon": -115.1398,
+    "display_name": "Las Vegas, Nevada, USA",
+    "type": "city",
+    "country_code": "us"
+  },
+  "Lima": {
+    "query": "Lima, Peru",
+    "lat": -12.0464,
+    "lon": -77.0428,
+    "display_name": "Lima, Peru",
+    "type": "city",
+    "country_code": "pe"
+  },
+  "London": {
+    "query": "London, United Kingdom",
+    "lat": 51.5074,
+    "lon": -0.1278,
+    "display_name": "London, United Kingdom",
+    "type": "city",
+    "country_code": "gb"
+  },
+  "Los Angeles": {
+    "query": "Los Angeles, California, USA",
+    "lat": 34.0522,
+    "lon": -118.2437,
+    "display_name": "Los Angeles, California, USA",
+    "type": "city",
+    "country_code": "us"
+  },
+  "Madrid": {
+    "query": "Madrid, Spain",
+    "lat": 40.4168,
+    "lon": -3.7038,
+    "display_name": "Madrid, Spain",
+    "type": "city",
+    "country_code": "es"
   },
   "Maldives": {
     "query": "Maldives",
     "lat": 3.7203503,
     "lon": 73.2244152,
-    "display_name": "\u078b\u07a8\u0788\u07ac\u0780\u07a8\u0783\u07a7\u0787\u07b0\u0796\u07ac",
+    "display_name": "ދިވެހިރާއްޖެ",
     "type": "administrative",
     "country_code": "mv"
+  },
+  "Melbourne": {
+    "query": "Melbourne, Victoria, Australia",
+    "lat": -37.8136,
+    "lon": 144.9631,
+    "display_name": "Melbourne, Australia",
+    "type": "city",
+    "country_code": "au"
+  },
+  "New York": {
+    "query": "New York, USA",
+    "lat": 40.7128,
+    "lon": -74.006,
+    "display_name": "New York City, USA",
+    "type": "city",
+    "country_code": "us"
   },
   "New Zealand": {
     "query": "New Zealand",
@@ -91,9 +291,25 @@
     "query": "North Island, New Zealand",
     "lat": -38.0035304,
     "lon": 175.957821,
-    "display_name": "North Island / Te Ika-a-M\u0101ui, New Zealand / Aotearoa",
+    "display_name": "North Island / Te Ika-a-Māui, New Zealand / Aotearoa",
     "type": "island",
     "country_code": "nz"
+  },
+  "Osaka": {
+    "query": "Osaka, Japan",
+    "lat": 34.6937,
+    "lon": 135.5022,
+    "display_name": "Osaka, Japan",
+    "type": "city",
+    "country_code": "jp"
+  },
+  "Paris": {
+    "query": "Paris, France",
+    "lat": 48.8566,
+    "lon": 2.3522,
+    "display_name": "Paris, France",
+    "type": "city",
+    "country_code": "fr"
   },
   "Perisher": {
     "query": "Perisher, New South Wales, Australia",
@@ -103,11 +319,19 @@
     "type": "winter_sports",
     "country_code": "au"
   },
+  "Peru": {
+    "query": "Peru",
+    "lat": -9.19,
+    "lon": -75.015152,
+    "display_name": "Peru",
+    "type": "administrative",
+    "country_code": "pe"
+  },
   "Phuket": {
     "query": "Phuket, Thailand",
     "lat": 7.9366015,
     "lon": 98.3529292,
-    "display_name": "\u0e08\u0e31\u0e07\u0e2b\u0e27\u0e31\u0e14\u0e20\u0e39\u0e40\u0e01\u0e47\u0e15, \u0e1b\u0e23\u0e30\u0e40\u0e17\u0e28\u0e44\u0e17\u0e22",
+    "display_name": "จังหวัดภูเก็ต, ประเทศไทย",
     "type": "administrative",
     "country_code": "th"
   },
@@ -127,6 +351,22 @@
     "type": "town",
     "country_code": "nz"
   },
+  "Rome": {
+    "query": "Rome, Italy",
+    "lat": 41.9028,
+    "lon": 12.4964,
+    "display_name": "Rome, Italy",
+    "type": "city",
+    "country_code": "it"
+  },
+  "Seoul": {
+    "query": "Seoul, South Korea",
+    "lat": 37.5665,
+    "lon": 126.978,
+    "display_name": "Seoul, South Korea",
+    "type": "city",
+    "country_code": "kr"
+  },
   "Singapore": {
     "query": "Singapore",
     "lat": 1.357107,
@@ -139,9 +379,17 @@
     "query": "Ho Chi Minh City, Vietnam",
     "lat": 10.7737261,
     "lon": 106.7166008,
-    "display_name": "Th\u00e0nh ph\u1ed1 H\u1ed3 Ch\u00ed Minh, Vi\u1ec7t Nam",
+    "display_name": "Thành phố Hồ Chí Minh, Việt Nam",
     "type": "administrative",
     "country_code": "vn"
+  },
+  "Sydney": {
+    "query": "Sydney, New South Wales, Australia",
+    "lat": -33.8688,
+    "lon": 151.2093,
+    "display_name": "Sydney, Australia",
+    "type": "city",
+    "country_code": "au"
   },
   "Tasmania": {
     "query": "Tasmania, Australia",
@@ -151,6 +399,14 @@
     "type": "administrative",
     "country_code": "au"
   },
+  "Thailand": {
+    "query": "Thailand",
+    "lat": 15.870032,
+    "lon": 100.992541,
+    "display_name": "Thailand",
+    "type": "administrative",
+    "country_code": "th"
+  },
   "Thredbo": {
     "query": "Thredbo, New South Wales, Australia",
     "lat": -36.5047751,
@@ -158,6 +414,14 @@
     "display_name": "Thredbo, New South Wales, 2625, Australia",
     "type": "administrative",
     "country_code": "au"
+  },
+  "Tokyo": {
+    "query": "Tokyo, Japan",
+    "lat": 35.6762,
+    "lon": 139.6503,
+    "display_name": "Tokyo, Japan",
+    "type": "city",
+    "country_code": "jp"
   },
   "Townsville": {
     "query": "Townsville, Queensland, Australia",
@@ -175,12 +439,44 @@
     "type": "administrative",
     "country_code": "gb"
   },
+  "USA": {
+    "query": "United States",
+    "lat": 37.09024,
+    "lon": -95.712891,
+    "display_name": "United States",
+    "type": "administrative",
+    "country_code": "us"
+  },
+  "Venice": {
+    "query": "Venice, Italy",
+    "lat": 45.4408,
+    "lon": 12.3155,
+    "display_name": "Venice, Italy",
+    "type": "city",
+    "country_code": "it"
+  },
   "Vietnam": {
     "query": "Vietnam",
     "lat": 15.9266657,
     "lon": 107.9650855,
-    "display_name": "Vi\u1ec7t Nam",
+    "display_name": "Việt Nam",
     "type": "administrative",
     "country_code": "vn"
+  },
+  "Banff": {
+    "query": "Banff, Alberta, Canada",
+    "lat": 51.1784,
+    "lon": -115.5708,
+    "display_name": "Banff, Alberta, Canada",
+    "type": "town",
+    "country_code": "ca"
+  },
+  "Jasper": {
+    "query": "Jasper, Alberta, Canada",
+    "lat": 52.8737,
+    "lon": -118.0814,
+    "display_name": "Jasper, Alberta, Canada",
+    "type": "town",
+    "country_code": "ca"
   }
 }

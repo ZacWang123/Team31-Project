@@ -5,7 +5,7 @@ import { inclusionIconClass } from '../constants/inclusionIcons';
 
 // Day-by-day itinerary. Rendered with key={package name} by the parent so
 // the open/closed state resets when you jump to a different package.
-function ItineraryList({ days }) {
+function ItineraryList({ days, duration }) {
   const [openDays, setOpenDays] = useState(() => new Set([0]));
   const allOpen = openDays.size === days.length;
 
@@ -17,10 +17,15 @@ function ItineraryList({ days }) {
       return next;
     });
 
+  // Use the package duration if available, otherwise fallback to counting days array
+  const durationLabel = duration || `${days.length} ${days.length === 1 ? 'day' : 'days'}`;
+
   return (
     <div className="modal-overview-section modal-itinerary">
       <div className="modal-section-title-row">
-        <h4 className="modal-overview-heading">Itinerary <span className="modal-section-count">{days.length} {days.length === 1 ? 'day' : 'days'}</span></h4>
+        <h4 className="modal-overview-heading">
+          Itinerary <span className="modal-section-count">{durationLabel}</span>
+        </h4>
         {days.length > 1 && (
           <button
             type="button"
@@ -142,7 +147,7 @@ export default function PackageDetailModal({
             />
             {selectedPackage.fromPrice && (
               <span className="modal-hero-price">
-                From ${selectedPackage.fromPrice.toLocaleString('en-AU')}
+                From \${selectedPackage.fromPrice.toLocaleString('en-AU')}
               </span>
             )}
           </div>
@@ -167,7 +172,11 @@ export default function PackageDetailModal({
           </div>
 
           {selectedPackage.itinerary?.length > 0 && (
-            <ItineraryList key={selectedPackage.packageName} days={selectedPackage.itinerary} />
+            <ItineraryList 
+              key={selectedPackage.packageName} 
+              days={selectedPackage.itinerary} 
+              duration={selectedPackage.duration} 
+            />
           )}
 
           <InclusionsSection key={`inc-${selectedPackage.packageName}`} inclusions={selectedPackage.inclusions} />

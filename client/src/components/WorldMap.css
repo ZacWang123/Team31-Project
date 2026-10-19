@@ -975,6 +975,14 @@ html, body {
   animation: city-pin-in 0.28s ease;
 }
 
+.city-pin-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform 0.1s ease-out;
+  pointer-events: auto;
+}
+
 /* Opacity only. Animating transform here would override the positioning
    transform MapLibre writes inline on the marker element. */
 @keyframes city-pin-in {
