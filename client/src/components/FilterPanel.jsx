@@ -4,7 +4,6 @@ import PackageSearch from './PackageSearch';
 import { FILTER_OPTIONS } from '../constants/mapConstants';
 import pinIcon from '../assets/location-pin.png';
 
-
 export default function FilterPanel({
   searchQuery,
   updateSearch,
@@ -16,13 +15,16 @@ export default function FilterPanel({
   toggleFilter,
   trackFilterClick,
   setActiveFilters,
+  // New props for duration and price ranges
+  maxDuration,
+  setMaxDuration,
+  maxPrice,
+  setMaxPrice,
 }) {
-  // 1. Add state to track collapsed/minimized status
   const [isMinimized, setIsMinimized] = useState(false);
 
   return (
     <div className={`filter-panel ${isMinimized ? 'minimized' : ''}`}>
-      {/* Header Row: Keeps the title and toggle button always visible */}
       <div className="filter-panel-header-row">
         <div className="explore-heading">
           <img src={pinIcon} alt="" aria-hidden="true" draggable="false" />
@@ -40,7 +42,6 @@ export default function FilterPanel({
         </button>
       </div>
 
-      {/* 2. Conditionally render search and filters only when not minimized */}
       {!isMinimized && (
         <div className="filter-panel-body">
           <PackageSearch
@@ -51,6 +52,7 @@ export default function FilterPanel({
             onSelect={selectSearchResult}
             loading={packagesLoading}
           />
+          
           <div className="filter-header">Filter Destinations</div>
           <div className="chip-container">
             {FILTER_OPTIONS.map((filter) => {
@@ -67,6 +69,52 @@ export default function FilterPanel({
               );
             })}
           </div>
+
+          {/* ---- NEW: Duration & Price Sliders/Inputs ---- */}
+          {/* ---- Duration & Price Sliders (Maxed out = Any) ---- */}
+          <div className="numeric-filters" style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="filter-slider-group">
+              <label style={{ fontSize: '12px', fontWeight: '600', color: '#334155', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Max Duration:</span>
+                <span>{maxDuration !== null ? `${maxDuration} Days/Nights` : 'Any'}</span>
+              </label>
+              <input 
+                type="range" 
+                min="1" 
+                max="30" 
+                step="1"
+                value={maxDuration === null ? 30 : maxDuration} 
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  // If dragged all the way to 30, set to null ("Any")
+                  setMaxDuration(val >= 30 ? null : val);
+                }}
+                style={{ width: '100%' }}
+              />
+            </div>
+
+            <div className="filter-slider-group">
+              <label style={{ fontSize: '12px', fontWeight: '600', color: '#334155', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Max Price:</span>
+                <span>{maxPrice !== null ? `$${maxPrice.toLocaleString('en-AU')}` : 'Any'}</span>
+              </label>
+              <input 
+                type="range" 
+                min="500" 
+                max="15000" 
+                step="250"
+                value={maxPrice === null ? 15000 : maxPrice} 
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  // If dragged all the way to 15000, set to null ("Any")
+                  setMaxPrice(val >= 15000 ? null : val);
+                }}
+                style={{ width: '100%' }}
+              />
+            </div>
+          </div>
+          {/* ------------------------------------------- */}
+
           <select
             className="filter-select-mobile"
             aria-label="Filter destinations"

@@ -3,7 +3,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 export const useInactivityTimer = ({
   idleTimeoutMs = 90000,
   warningDurationSec = 30,
-  onResetSession
+  onResetSession,
+  enabled = true
 } = {}) => {
   const [showWarning, setShowWarning] = useState(false);
   const [countdown, setCountdown] = useState(warningDurationSec);
@@ -24,6 +25,8 @@ export const useInactivityTimer = ({
 
   // Restart idle timer
   const resetIdleTimer = useCallback(() => {
+    if (!enabled) return; 
+
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
 
@@ -32,13 +35,24 @@ export const useInactivityTimer = ({
     setCountdown(warningDurationSec);
 
     idleTimerRef.current = setTimeout(() => {
-      setShowWarning(true);
-      showWarningRef.current = true;
+      if (enabled) {
+        setShowWarning(true);
+        showWarningRef.current = true;
+      }
     }, idleTimeoutMs);
-  }, [idleTimeoutMs, warningDurationSec]);
+  }, [idleTimeoutMs, warningDurationSec, enabled]);
 
   // Handle warning countdown
   useEffect(() => {
+    if (!enabled) {
+      // Clean up warning state immediately if disabled
+      setShowWarning(false);
+      showWarningRef.current = false;
+      setCountdown(warningDurationSec);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      return;
+    }
+
     if (showWarning) {
       setCountdown(warningDurationSec);
 
@@ -59,12 +73,20 @@ export const useInactivityTimer = ({
     return () => {
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     };
-  }, [showWarning, warningDurationSec]);
+  }, [showWarning, warningDurationSec, enabled]);
 
   // Setup user activity listeners
   useEffect(() => {
+    if (!enabled) {
+      // Clear idle timer and don't listen to events if disabled
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      setShowWarning(false);
+      showWarningRef.current = false;
+      return;
+    }
+
     const handleUserActivity = () => {
-      if (!showWarningRef.current) {
+      if (!showWarningRef.current && enabled) {
         resetIdleTimer();
       }
     };
@@ -78,7 +100,7 @@ export const useInactivityTimer = ({
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
       events.forEach((event) => window.removeEventListener(event, handleUserActivity, true));
     };
-  }, [resetIdleTimer]);
+  }, [resetIdleTimer, enabled]);
 
   return {
     showWarning,

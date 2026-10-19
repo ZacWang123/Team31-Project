@@ -17,7 +17,6 @@ function App() {
     if (resetProfile) resetProfile();
 
     setSessionKey((prevKey) => prevKey + 1);
-
     setShowWelcome(true);
 
     console.log('[App] Session reset completed & Welcome modal restored.');
@@ -26,7 +25,8 @@ function App() {
   const { showWarning, countdown, keepExploring } = useInactivityTimer({
     idleTimeoutMs: 90000, 
     warningDurationSec: 30,  
-    onResetSession: handleResetSession
+    onResetSession: handleResetSession,
+    enabled: !showWelcome // 👈 Disable/pause the timer while the welcome modal is open
   });
 
   return (

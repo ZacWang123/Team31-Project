@@ -32,6 +32,7 @@ const packageSchema = new mongoose.Schema(
     iso3: { type: String, default: '' },
     wowFactor: { type: String, default: '' },
     fromPrice: { type: Number, default: null },
+    duration: { type: String, default: '' },
     image: { type: String, default: '' },
     // Package detail content, parsed out of the sheet's "Product Description"
     // and "Product Inclusions" JSON columns. Empty when a row has none (or

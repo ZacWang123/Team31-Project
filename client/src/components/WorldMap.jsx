@@ -19,6 +19,42 @@ import pinIcon from '../assets/location-pin.png';
 import { TAG_RULES, getPackageTags, packageCountry, hasCoordinates, matchesPackage } from '../utils/tagUtils';
 import { resolveIso3, boundsForCities, buildDestinations, buildCityIndex } from '../utils/mapDataBuilders';
 
+// --- Helper Functions for Duration & Price Parsing ---
+// --- Helper Functions Matched to Package Schema ---
+export function parsePackageDuration(pkg) {
+  if (!pkg) return null;
+
+  // 1. Read directly from the newly mapped `duration` field (synced from Google Sheet)
+  const rawText = String(pkg.duration || pkg.packageName || pkg.summary || '');
+  
+  // 2. Extract the number preceding 'night', 'day', 'n', or 'd'
+  const match = rawText.match(/(\d+)\s*(?:night|day|n|d)/i);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+
+  // 3. Fallback to itinerary length if present
+  if (Array.isArray(pkg.itinerary) && pkg.itinerary.length > 0) {
+    return pkg.itinerary.length;
+  }
+
+  return null;
+}
+
+export function parsePackagePrice(pkg) {
+  if (!pkg) return null;
+
+  // Schema explicitly uses `fromPrice` (Number)
+  if (typeof pkg.fromPrice === 'number') return pkg.fromPrice;
+
+  // Fallback if it arrives as a string or alternate property
+  const rawPrice = pkg.fromPrice ?? pkg.price;
+  if (rawPrice === undefined || rawPrice === null || rawPrice === '') return null;
+
+  const cleaned = String(rawPrice).replace(/[^0-9.]/g, '');
+  return cleaned ? parseFloat(cleaned) : null;
+}
+
 // FCIPT3-25: packages now come from the live database (synced from Flight
 // Centre's Google Sheet) instead of the bundled packages.json. City-level
 // pins (cityPackagesData, above) are a separate, still-static dataset -
@@ -227,6 +263,8 @@ export default function WorldMap() {
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSearchPackage, setSelectedSearchPackage] = useState(null);
+  const [maxDuration, setMaxDuration] = useState(null);
+  const [maxPrice, setMaxPrice] = useState(null);
 
   const NOMINATED_STORE_EMAIL = "team31qut736@gmail.com";
   const [profileName, setProfileName] = useState("");
@@ -321,9 +359,28 @@ export default function WorldMap() {
   }, [destinations, cityIndex]);
 
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
-  const matchingPackages = useMemo(() =>
-    packagesData.filter((pkg) => matchesPackage(pkg, normalizedSearch, activeFilters)),
-  [packagesData, normalizedSearch, activeFilters]);
+  const matchingPackages = useMemo(() => {
+    return packagesData.filter((pkg) => {
+      // 1. Search text & chip filter match
+      const matchesSearchAndChips = matchesPackage(pkg, normalizedSearch, activeFilters);
+      if (!matchesSearchAndChips) return false;
+
+      // 2. Duration match
+      if (maxDuration !== null) {
+        const pkgDuration = parsePackageDuration(pkg);
+        if (pkgDuration > maxDuration) return false;
+      }
+
+      // 3. Price match
+      if (maxPrice !== null) {
+        const pkgPrice = parsePackagePrice(pkg);
+        if (pkgPrice > maxPrice) return false;
+      }
+
+      return true;
+    });
+  }, [packagesData, normalizedSearch, activeFilters, maxDuration, maxPrice]);
+
   const visiblePackagesRef = useRef(new Set());
   visiblePackagesRef.current = new Set(matchingPackages);
 
@@ -626,6 +683,7 @@ export default function WorldMap() {
     });
   }, [matchingPackages, activeFilters, normalizedSearch, cityIndex, mapLoaded]);
   
+  
   /* ----------------------------------------------------------------------
      FCIPT3-10: city pins
      When a country fills the view, swap the world-level pins out for
@@ -806,7 +864,12 @@ export default function WorldMap() {
   useEffect(() => {
     if (!mapLoaded) return;
 
-    const hasActiveFilters = activeFilters.length > 0 || Boolean(normalizedSearch);
+    const hasActiveFilters =
+      activeFilters.length > 0 ||
+      Boolean(normalizedSearch) ||
+      maxDuration !== null ||
+      maxPrice !== null ||
+      selectedSearchPackage !== null;
 
     // 1. Build a set of matching package keys for reliable lookup
     const matchingKeysSet = new Set(
@@ -891,7 +954,7 @@ export default function WorldMap() {
       const matchingIso3 = [
         ...new Set(
           matchingPackages
-            .map((pkg) => pkg.iso3 || pkg.countryCode || pkg.iso_a3)
+            .map((pkg) => (pkg.iso3 || pkg.countryCode || pkg.iso_a3 || '').toUpperCase())
             .filter(Boolean)
         ),
       ];
@@ -912,6 +975,8 @@ export default function WorldMap() {
     selectedSearchPackage,
     activeCountry,
     activeFilters,
+    maxDuration,
+    maxPrice,
     normalizedSearch,
     mapLoaded,
     destinations,
@@ -1047,6 +1112,11 @@ export default function WorldMap() {
         toggleFilter={toggleFilter}
         trackFilterClick={trackFilterClick}
         setActiveFilters={setActiveFilters}
+        /* Pass duration and price props */
+        maxDuration={maxDuration}
+        setMaxDuration={setMaxDuration}
+        maxPrice={maxPrice}
+        setMaxPrice={setMaxPrice}
       />
 
       <MapControls 

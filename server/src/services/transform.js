@@ -152,6 +152,7 @@ export function transformRow(row) {
       iso3: ISO2_TO_ISO3[iso2] || (destination === 'Antarctica' ? 'ATA' : ''),
       wowFactor: (row['Short Description (WOW Factor)'] || '').trim(),
       fromPrice: cleanPrice(row['Advertised From Price(FCL May Adjust)']),
+      duration: (row['Land Product Duration'] || row['Duration'] || '').trim(),
       image: buildImageUrl(rawImagePath) || FALLBACK_IMAGE,
       summary: description.summary,
       itinerary: description.itinerary,
