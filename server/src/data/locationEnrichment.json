@@ -154,5 +154,85 @@
   "Fly & Tour Kerala & Southern Highlights": {
     "city": "Kerala",
     "place": ""
+  },
+  "Fly, Stay & Tour: Rio de Janeiro & Iguazu Falls Discovery": {
+    "city": "Rio de Janeiro",
+    "place": "Christ the Redeemer"
+  },
+  "Rio de Janeiro Beach Resort Escape": {
+    "city": "Rio de Janeiro",
+    "place": "Copacabana Beach"
+  },
+  "Amazon Rainforest Wildlife Expedition": {
+    "city": "Manaus",
+    "place": "Meeting of the Waters"
+  },
+  "Buenos Aires Tango & Heritage Explorer": {
+    "city": "Buenos Aires",
+    "place": "Recoleta Cemetery"
+  },
+  "Patagonia Glacier Trekking Adventure": {
+    "city": "El Calafate",
+    "place": "Perito Moreno Glacier"
+  },
+  "Peru: Machu Picchu & Sacred Valley Explorer": {
+    "city": "Cusco",
+    "place": "Machu Picchu"
+  },
+  "Chile: Atacama Desert & Wine Valleys Discovery": {
+    "city": "Santiago",
+    "place": "Valle de la Luna"
+  },
+  "Colombia Caribbean Coast & Cartagena Escape": {
+    "city": "Cartagena",
+    "place": "Walled Old Town"
+  },
+  "Galapagos Islands Wildlife Cruise": {
+    "city": "Galapagos Islands",
+    "place": "San Cristobal"
+  },
+  "Cape Town & Winelands Explorer": {
+    "city": "Cape Town",
+    "place": "Table Mountain"
+  },
+  "South Africa Kruger Safari Highlights": {
+    "city": "Kruger National Park",
+    "place": "Big Five game drives"
+  },
+  "Morocco Imperial Cities & Sahara Discovery": {
+    "city": "Marrakech",
+    "place": "Jemaa el-Fnaa"
+  },
+  "Kenya Big Five Safari": {
+    "city": "Masai Mara",
+    "place": "Mara River"
+  },
+  "Tanzania Serengeti Safari & Zanzibar Beach": {
+    "city": "Serengeti",
+    "place": "Serengeti National Park"
+  },
+  "Victoria Falls & Chobe Safari Explorer": {
+    "city": "Victoria Falls",
+    "place": "Victoria Falls"
+  },
+  "Namibia Desert & Wildlife Expedition": {
+    "city": "Sossusvlei",
+    "place": "Sossusvlei dunes"
+  },
+  "Egypt: Pyramids & Nile Cruise Explorer": {
+    "city": "Cairo",
+    "place": "Giza Pyramids"
+  },
+  "Mauritius All-Inclusive Island Resort": {
+    "city": "Le Morne",
+    "place": "Le Morne Brabant"
+  },
+  "Dubai 3-Night Stopover": {
+    "city": "Dubai",
+    "place": "Burj Khalifa"
+  },
+  "Johannesburg 2-Night Stopover": {
+    "city": "Johannesburg",
+    "place": "Apartheid Museum"
   }
 }

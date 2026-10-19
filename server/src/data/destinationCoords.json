@@ -478,5 +478,133 @@
     "display_name": "Jasper, Alberta, Canada",
     "type": "town",
     "country_code": "ca"
+  },
+  "Rio de Janeiro": {
+    "query": "Rio de Janeiro",
+    "lat": -22.9110137,
+    "lon": -43.2093727,
+    "display_name": "Rio de Janeiro, Southeast Region, Brazil",
+    "type": "administrative",
+    "country_code": "br"
+  },
+  "Manaus": {
+    "query": "Manaus",
+    "lat": -3.1316333,
+    "lon": -59.9825041,
+    "display_name": "Manaus, Amazonas, North Region, Brazil",
+    "type": "administrative",
+    "country_code": "br"
+  },
+  "Buenos Aires": {
+    "query": "Buenos Aires",
+    "lat": -34.6095579,
+    "lon": -58.3887904,
+    "display_name": "Buenos Aires, Comuna 1, Autonomous City of Buenos Aires, Argentina",
+    "type": "administrative",
+    "country_code": "ar"
+  },
+  "El Calafate": {
+    "query": "El Calafate",
+    "lat": -50.3387375,
+    "lon": -72.2737216,
+    "display_name": "El Calafate, Lago Argentino, Santa Cruz, Argentina",
+    "type": "administrative",
+    "country_code": "ar"
+  },
+  "Santiago": {
+    "query": "Santiago",
+    "lat": -33.4376995,
+    "lon": -70.6510671,
+    "display_name": "Santiago, Provincia de Santiago, Santiago Metropolitan Region, 8320000, Chile",
+    "type": "city",
+    "country_code": "cl"
+  },
+  "Cartagena": {
+    "query": "Cartagena",
+    "lat": 10.4265566,
+    "lon": -75.5441671,
+    "display_name": "Cartagena, Dique, Bolívar, RAP Caribe, Colombia",
+    "type": "administrative",
+    "country_code": "co"
+  },
+  "Galapagos Islands": {
+    "query": "Galapagos Islands",
+    "lat": -0.628815,
+    "lon": -90.3638752,
+    "display_name": "Galapagos Islands, Galápagos, Ecuador",
+    "type": "archipelago",
+    "country_code": "ec"
+  },
+  "Cape Town": {
+    "query": "Cape Town",
+    "lat": -33.9288301,
+    "lon": 18.4172197,
+    "display_name": "Cape Town, City of Cape Town, Western Cape, 8001, South Africa",
+    "type": "city",
+    "country_code": "za"
+  },
+  "Kruger National Park": {
+    "query": "Kruger National Park",
+    "lat": -23.9357763,
+    "lon": 31.5083741,
+    "display_name": "Kruger National Park, Limpopo, 1350, South Africa",
+    "type": "nature_reserve",
+    "country_code": "za"
+  },
+  "Johannesburg": {
+    "query": "Johannesburg",
+    "lat": -26.205,
+    "lon": 28.049722,
+    "display_name": "Johannesburg, City of Johannesburg Metropolitan Municipality, Gauteng, 2001, South Africa",
+    "type": "city",
+    "country_code": "za"
+  },
+  "Marrakech": {
+    "query": "Marrakech",
+    "lat": 31.6258257,
+    "lon": -7.9891608,
+    "display_name": "Marrakesh, Pachalik de Marrakech, Marrakesh Prefecture, Marrakech-Safi, Morocco",
+    "type": "administrative",
+    "country_code": "ma"
+  },
+  "Masai Mara": {
+    "query": "Masai Mara",
+    "lat": -1.4881431,
+    "lon": 35.1054095,
+    "display_name": "Masai Mara National Reserve, Narok, Kenya",
+    "type": "nature_reserve",
+    "country_code": "ke"
+  },
+  "Serengeti": {
+    "query": "Serengeti",
+    "lat": -2.3712909,
+    "lon": 34.6983828,
+    "display_name": "Serengeti National Park, Lake Zone, 31611, Tanzania",
+    "type": "national_park",
+    "country_code": "tz"
+  },
+  "Victoria Falls": {
+    "query": "Victoria Falls",
+    "lat": -17.922895,
+    "lon": 25.8476849,
+    "display_name": "Devil's Cataract, Victoria Falls, Hwange, Matabeleland North Province, Zimbabwe",
+    "type": "cliff",
+    "country_code": "zw"
+  },
+  "Namibia": {
+    "query": "Namibia",
+    "lat": -23.2335499,
+    "lon": 17.3231107,
+    "display_name": "Namibia",
+    "type": "administrative",
+    "country_code": "na"
+  },
+  "Mauritius": {
+    "query": "Mauritius",
+    "lat": -20.2759451,
+    "lon": 57.5703566,
+    "display_name": "Mauritius",
+    "type": "administrative",
+    "country_code": "mu"
   }
 }
