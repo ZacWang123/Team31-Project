@@ -4,6 +4,7 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import packagesRouter from './routes/packages.js';
 import { runSync } from './services/sync.js';
+import { sheetSourceFromEnv, isSheetConfigured } from './services/googleSheets.js';
 
 const app = express();
 app.use(cors());
@@ -19,16 +20,13 @@ const PORT = process.env.PORT || 4000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/team31';
 
 async function syncIfConfigured(label) {
-  if (!process.env.GOOGLE_SHEET_ID || !process.env.GOOGLE_SHEETS_API_KEY) {
-    console.log(`[sync] skipped (${label}) - GOOGLE_SHEET_ID / GOOGLE_SHEETS_API_KEY not set yet`);
+  const source = sheetSourceFromEnv();
+  if (!isSheetConfigured(source)) {
+    console.log(`[sync] skipped (${label}) - set GOOGLE_SHEET_CSV_URL (or GOOGLE_SHEET_ID + GOOGLE_SHEETS_API_KEY) in server/.env`);
     return;
   }
   try {
-    const summary = await runSync({
-      sheetId: process.env.GOOGLE_SHEET_ID,
-      apiKey: process.env.GOOGLE_SHEETS_API_KEY,
-      range: process.env.GOOGLE_SHEET_RANGE || 'Sheet1',
-    });
+    const summary = await runSync(source);
     console.log(
       `[sync] (${label}) read ${summary.rowsRead} rows, upserted ${summary.upserted}, skipped ${summary.skipped.length} in ${summary.tookMs}ms`
     );

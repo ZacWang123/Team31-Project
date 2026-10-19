@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import Package from '../models/Package.js';
 import { runSync } from '../services/sync.js';
+import { sheetSourceFromEnv } from '../services/googleSheets.js';
 
 const router = Router();
 
@@ -20,11 +21,7 @@ router.get('/packages', async (req, res) => {
 // also does this on startup and on a timer - see index.js).
 router.post('/sync', async (req, res) => {
   try {
-    const summary = await runSync({
-      sheetId: process.env.GOOGLE_SHEET_ID,
-      apiKey: process.env.GOOGLE_SHEETS_API_KEY,
-      range: process.env.GOOGLE_SHEET_RANGE || 'Sheet1',
-    });
+    const summary = await runSync(sheetSourceFromEnv());
     res.json(summary);
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });

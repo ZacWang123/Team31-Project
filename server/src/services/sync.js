@@ -7,9 +7,9 @@ import { transformRow } from './transform.js';
  * MongoDB by packageName. Returns a summary so callers (the sync route, the
  * startup log, the interval timer) can all report the same shape.
  */
-export async function runSync({ sheetId, apiKey, range }) {
+export async function runSync(source) {
   const startedAt = Date.now();
-  const rawRows = await fetchSheetRows({ sheetId, apiKey, range });
+  const rawRows = await fetchSheetRows(source);
 
   const skipped = [];
   const warnings = [];
