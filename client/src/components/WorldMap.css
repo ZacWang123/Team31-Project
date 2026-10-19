@@ -964,11 +964,11 @@ html, body {
 
 .city-pin {
   display: flex;
+  flex-direction: column; /* Stack label above, pin below */
   align-items: center;
-  gap: 7px;
+  gap: 4px; /* Space between label and pin */
   cursor: pointer;
   z-index: 11;
-  /* 44px minimum touch target for kiosk hardware */
   min-height: 44px;
   padding: 0 2px;
   opacity: 1;

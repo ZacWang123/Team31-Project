@@ -296,7 +296,7 @@ export default function WorldMap() {
   const destinations = useMemo(() => buildDestinations(packagesData), [packagesData]);
   
   // Make sure cityPackagesData is passed in here:
-  const cityIndex = useMemo(() => buildCityIndex(cityPackagesData), [cityPackagesData]);
+  const cityIndex = useMemo(() => buildCityIndex(packagesData), [packagesData]);
 
   /*
    * A country like France only shows up here via Paris in cityPackages.json
@@ -322,7 +322,7 @@ export default function WorldMap() {
 
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
   const matchingPackages = useMemo(() =>
-    [...packagesData, ...cityPackagesData].filter((pkg) => matchesPackage(pkg, normalizedSearch, activeFilters)),
+    packagesData.filter((pkg) => matchesPackage(pkg, normalizedSearch, activeFilters)),
   [packagesData, normalizedSearch, activeFilters]);
   const visiblePackagesRef = useRef(new Set());
   visiblePackagesRef.current = new Set(matchingPackages);
@@ -564,7 +564,7 @@ export default function WorldMap() {
     };
   }, [packagesLoading]);
 
-  // 2. Re-render and filter world-level destination/country pins whenever filters or search change
+  // 2. Render unlabelled country-level pins at the world view
   useEffect(() => {
     if (!mapLoaded || !mapInstanceRef.current) return;
 
@@ -573,120 +573,58 @@ export default function WorldMap() {
 
     const map = mapInstanceRef.current;
 
-    destinations.forEach((dest) => {
-      if (!hasCoordinates(dest)) return;
+    Object.entries(cityIndex).forEach(([iso3, cities]) => {
+      if (!cities || cities.length === 0) return;
 
-      const hasVisiblePackages = dest.packages.some((pkg) => visiblePackagesRef.current.has(pkg));
-      if (!hasVisiblePackages) return;
+      const countryPackages = cities.flatMap((c) => c.packages || []);
+      const shownPackages = countryPackages.filter((pkg) => visiblePackagesRef.current.has(pkg));
+      
+      const hasVisiblePackages = shownPackages.length > 0;
+      if (!hasVisiblePackages && (activeFilters.length > 0 || normalizedSearch)) return;
 
-      const el = document.createElement('div');
-      el.className = 'country-pin';
-      el.innerHTML = `<img src="${pinIcon}" alt="" aria-hidden="true" draggable="false" />`;
-
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-
-        const shownPackages = dest.packages.filter((pkg) => visiblePackagesRef.current.has(pkg));
-        if (!shownPackages.length) return;
-        const shownDest = { ...dest, packages: shownPackages };
-
-        preZoomViewRef.current = { center: map.getCenter().toArray(), zoom: map.getZoom() };
-        activeDestRef.current = shownDest;
-
-        popupSessionRef.current += 1;
-        const session = popupSessionRef.current;
-
-        if (popupRef.current) {
-          popupRef.current.remove();
-        }
-
-        const popup = new maplibregl.Popup({ offset: 20, closeButton: true, maxWidth: 'none' })
-          .setLngLat([dest.lon, dest.lat])
-          .setHTML(buildPopupHTML(shownDest, savedPackagesRef.current))
-          .addTo(map);
-
-        const popupElem = popup.getElement();
-        if (popupElem) {
-          popupElem.addEventListener('click', (ev) => {
-            const saveBtn = ev.target.closest('.save-package-btn');
-            if (saveBtn) {
-              ev.stopPropagation();
-              const indexAttr = saveBtn.getAttribute('data-index');
-              const targetPkg = shownPackages[parseInt(indexAttr, 10)];
-              if (targetPkg) {
-                toggleSavePackage(targetPkg);
-              }
-              return;
-            }
-
-            const cardEl = ev.target.closest('.package-card');
-            if (cardEl) {
-              const indexAttr = cardEl.getAttribute('data-index');
-              const targetPkg = shownPackages[parseInt(indexAttr, 10)];
-              if (targetPkg) {
-                trackPackageClick(targetPkg);
-                setSelectedPackage(targetPkg);
-              }
-            }
-          });
-        }
-
-        popup.on('close', () => {
-          if (popupSessionRef.current !== session) return;
-          activeDestRef.current = null;
-          const view = preZoomViewRef.current;
-          if (view) {
-            map.flyTo({ center: view.center, zoom: view.zoom, essential: true, duration: 1000 });
-          }
-        });
-
-        popupRef.current = popup;
-
-        const zoomView = customZoomViews[dest.destination];
-        if (zoomView) {
-          map.flyTo({ ...zoomView, essential: true, duration: 1200 });
-        } else {
-          map.flyTo({ center: [dest.lon, dest.lat], zoom: Math.max(map.getZoom(), 5), essential: true, duration: 1200 });
-        }
-      });
-
-      const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
-        .setLngLat([dest.lon, dest.lat])
-        .addTo(map);
-
-      markersRef.current.push({ marker, element: el, destination: dest });
-    });
-
-    countryOnlyPins.forEach(({ cities, lat, lon, tags }) => {
-      if (!hasCoordinates({ lat, lon })) return;
-
-      const matchesCountry = tags.some((tagId) => 
-        activeFilters.length === 0 || activeFilters.includes(tagId)
-      );
-      if (!matchesCountry) return;
+      const countryLat = cities[0].lat;
+      const countryLon = cities[0].lon;
+      const countryName = cities[0].country || iso3;
+      const count = shownPackages.length > 0 ? shownPackages.length : countryPackages.length;
 
       const el = document.createElement('div');
-      el.className = 'country-pin';
-      el.innerHTML = `<img src="${pinIcon}" alt="" aria-hidden="true" draggable="false" />`;
+      el.className = 'country-pin'; // Distinct class name for world view
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('aria-label', `${countryName}, ${count} packages`);
+
+      // Large, clean, unlabelled pin markup
+      el.innerHTML = `
+        <img src="${pinIcon}" alt="" aria-hidden="true" draggable="false" style="width: 38px; height: 38px;" />
+      `;
 
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         if (popupRef.current) popupRef.current.remove();
+        if (cityPopupRef.current) cityPopupRef.current.remove();
 
-        const bounds = boundsForCities(cities);
-        if (bounds) {
-          map.fitBounds(bounds, { padding: 90, maxZoom: 7, duration: 1200, essential: true });
+        setActiveCountry(iso3);
+
+        const preset = customZoomViews[countryName];
+        if (preset) {
+          map.flyTo({ ...preset, essential: true, duration: 1200 });
+        } else {
+          const bounds = boundsForCities(cities);
+          if (bounds) {
+            map.fitBounds(bounds, { padding: 90, maxZoom: 7, duration: 1200, essential: true });
+          } else {
+            map.flyTo({ center: [countryLon, countryLat], zoom: 5, essential: true, duration: 1200 });
+          }
         }
       });
 
       const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
-        .setLngLat([lon, lat])
+        .setLngLat([countryLon, countryLat])
         .addTo(map);
 
-      markersRef.current.push({ marker, element: el, destination: { tags, packages: [] } });
+      markersRef.current.push({ marker, element: el, iso3, cities });
     });
-
-  }, [matchingPackages, activeFilters, mapLoaded]);
+  }, [matchingPackages, activeFilters, normalizedSearch, cityIndex, mapLoaded]);
   
   /* ----------------------------------------------------------------------
      FCIPT3-10: city pins
@@ -708,16 +646,10 @@ export default function WorldMap() {
     cityExpandedRef.current = false;
 
     /* World view: keep country pins; matching city pins can also show during search. */
+    /* World view: show country pins; Zoomed view: hide country pins and show city pins */
     if (!activeCountry) {
-      markersRef.current.forEach(({ element, destination }) => {
-        if (!element) return;
-        
-        // Check if this destination pin contains any packages matching the active filter/search
-        const hasMatchingPackages = destination.packages 
-          ? destination.packages.some((pkg) => visiblePackagesRef.current.has(pkg))
-          : true; // fallback for country-only pins
-
-        element.style.display = hasMatchingPackages ? '' : 'none';
+      markersRef.current.forEach(({ element }) => {
+        if (element) element.style.display = '';
       });
     } else {
       markersRef.current.forEach(({ element }) => {
@@ -748,17 +680,23 @@ export default function WorldMap() {
       el.setAttribute('role', 'button');
       el.setAttribute('tabindex', '0');
       el.setAttribute('aria-label', `${city.name}, ${visiblePkgs.length} packages`);
+
+      // Clean HTML structure letting CSS handle the pill label floating above the pin
       el.innerHTML = `
-        <img class="city-pin-marker" src="${pinIcon}" alt="" aria-hidden="true" draggable="false" />
         <span class="city-pin-label">
           <span class="city-pin-name"></span>
           <span class="city-pin-count"></span>
         </span>
+        <img class="city-pin-marker" src="${pinIcon}" alt="" aria-hidden="true" draggable="false" />
       `;
+
       el.querySelector('.city-pin-name').textContent = city.name;
-      
-      // 3. Set badge text to filtered count
       el.querySelector('.city-pin-count').textContent = String(visiblePkgs.length);
+
+      // Anchor the marker directly to the bottom tip of the container element
+      const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([city.lon, city.lat])
+        .addTo(map);
 
       const openCityPopup = () => {
         const shownPackages = city.packages.filter((pkg) => visiblePackagesRef.current.has(pkg));
@@ -843,10 +781,6 @@ export default function WorldMap() {
         }
       });
 
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([city.lon, city.lat])
-        .addTo(map);
-
       cityMarkersRef.current.push({ marker, element: el, city });
     });
   }, [activeCountry, normalizedSearch, matchingPackages, mapLoaded]);
@@ -854,10 +788,11 @@ export default function WorldMap() {
   /* Keep search, filters, and marker highlighting in sync. */
   useEffect(() => {
     cityMarkersRef.current.forEach(({ element, city }) => {
-      if (!element) return;
-      const matches = city.packages.some((pkg) => visiblePackagesRef.current.has(pkg));
+      if (!element || !city) return;
+      const cityPackages = Array.isArray(city.packages) ? city.packages : [];
+      const matches = cityPackages.some((pkg) => visiblePackagesRef.current.has(pkg));
       element.classList.toggle('is-dimmed', !matches);
-      element.classList.toggle('is-search-match', Boolean(selectedSearchPackage && city.packages.includes(selectedSearchPackage)));
+      element.classList.toggle('is-search-match', Boolean(selectedSearchPackage && cityPackages.includes(selectedSearchPackage)));
     });
   }, [matchingPackages, selectedSearchPackage, activeCountry, mapLoaded]);
 
@@ -880,79 +815,60 @@ export default function WorldMap() {
 
     // 2. UPDATE GLOBAL COUNTRY MARKERS
     if (markersRef.current.length > 0) {
-      markersRef.current.forEach(({ marker, element, destination }) => {
+      markersRef.current.forEach(({ marker, element, cities }) => {
         if (!element || !marker) return;
 
+        // Safely aggregate packages across all cities in this country
+        const countryPackages = (cities || []).flatMap((c) => (Array.isArray(c.packages) ? c.packages : []));
+
         const filteredPackages = hasActiveFilters
-          ? destination.packages.filter((pkg) => matchingKeysSet.has(getPkgKey(pkg)))
-          : destination.packages;
+          ? countryPackages.filter((pkg) => matchingKeysSet.has(getPkgKey(pkg)))
+          : countryPackages;
 
         const filteredCount = filteredPackages.length;
         const matchesFilter = !hasActiveFilters || filteredCount > 0;
 
-        const isSearchMatch = Boolean(
-          selectedSearchPackage &&
-          destination.packages.some((pkg) => getPkgKey(pkg) === getPkgKey(selectedSearchPackage))
-        );
-
-        const matchesCountry =
-          !activeCountry ||
-          destination.country === activeCountry ||
-          destination.iso3 === activeCountry ||
-          (destination.packages && destination.packages.some((pkg) => pkg.country === activeCountry));
-
-        // Dimming logic
-        if (typeof marker.setOpacity === 'function') {
-          marker.setOpacity('1'); 
-        }
-        
-        element.classList.toggle('is-dimmed', !matchesFilter);
-        element.classList.toggle('is-search-match', isSearchMatch);
-        element.style.pointerEvents = matchesFilter ? 'auto' : 'none';
-
-        const badgeEl = element.querySelector('.marker-count, .package-count, .pin-count');
+        // Update count badge
+        const badgeEl = element.querySelector('.city-pin-count');
         if (badgeEl) {
-          badgeEl.textContent = filteredCount;
+          badgeEl.textContent = String(filteredCount);
         }
 
-        const shouldHideForSearch = Boolean(normalizedSearch);
-        
-        if (shouldHideForSearch || !matchesCountry) {
-          element.style.display = 'none';
-        } else {
-          element.style.display = '';
-        }
+        // World pins show at global view when matching filters, and hide during active search or country zoom
+        const shouldShowWorldPin = !activeCountry && !normalizedSearch && matchesFilter;
+        element.style.display = shouldShowWorldPin ? '' : 'none';
       });
     }
 
     // 3. UPDATE CITY MARKERS
     if (cityMarkersRef.current && cityMarkersRef.current.length > 0) {
       cityMarkersRef.current.forEach(({ element, city }) => {
-        if (!element) return;
+        if (!element || !city) return;
+
+        // Safely fallback if city.packages is undefined
+        const cityPackages = Array.isArray(city.packages) ? city.packages : [];
 
         // Filter city packages against active filters
         const filteredPackages = hasActiveFilters
-          ? city.packages.filter((pkg) => matchingKeysSet.has(getPkgKey(pkg)))
-          : city.packages;
+          ? cityPackages.filter((pkg) => matchingKeysSet.has(getPkgKey(pkg)))
+          : cityPackages;
 
         const filteredCount = filteredPackages.length;
         const matchesFilter = !hasActiveFilters || filteredCount > 0;
 
         const isSearchMatch = Boolean(
           selectedSearchPackage &&
-          city.packages.some((pkg) => getPkgKey(pkg) === getPkgKey(selectedSearchPackage))
+          cityPackages.some((pkg) => getPkgKey(pkg) === getPkgKey(selectedSearchPackage))
         );
 
         element.classList.toggle('is-search-match', isSearchMatch);
         element.style.pointerEvents = matchesFilter ? 'auto' : 'none';
 
-        // FIX 3: Update the city badge/counter text with the filtered count
-        const badgeEl = element.querySelector('.marker-count, .package-count, .pin-count');
+        const badgeEl = element.querySelector('.city-pin-count');
         if (badgeEl) {
-          badgeEl.textContent = filteredCount;
+          badgeEl.textContent = String(filteredCount);
         }
 
-        // FIX 2: Completely hide city pins if they have no relevant packages
         if (matchesFilter) {
           element.style.display = '';
           element.classList.remove('is-dimmed');
