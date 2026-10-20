@@ -234,5 +234,17 @@
   "Johannesburg 2-Night Stopover": {
     "city": "Johannesburg",
     "place": "Apartheid Museum"
+  },
+  "Fly, Stay & Explore: London Royal Highlights & Landmarks": {
+    "city": "London",
+    "place": "London"
+  },
+  "Fly, Stay & Tour: London, Windsor & Cotswolds Explorer": {
+    "city": "London",
+    "place": "London"
+  },
+  "Stay & Tour: London Magic & Warner Bros. Studio Tour": {
+    "city": "London",
+    "place": "London"
   }
 }

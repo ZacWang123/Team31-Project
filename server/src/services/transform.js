@@ -122,7 +122,7 @@ function parseInclusions(raw) {
 }
 
 /**
- * Turns one raw Google Sheet row (keyed by Flight Centre's own column
+ * Turns one raw Google Sheet row (keyed by Flight Centre's own column  
  * names) into the enriched shape the frontend expects. Returns null for
  * rows we can't place on the map (destination not in our geocoded set) -
  * the sync logs these so a new destination added to the sheet is visible
@@ -140,7 +140,8 @@ export function transformRow(row) {
 
   const iso2 = (coord.country_code || '').toLowerCase();
   const rawImagePath = row['Supplier Product Image (URL or File Ref)'] || '';
-  const location = locationEnrichment[packageName] || { city: '', place: '' };
+  const location = locationEnrichment[packageName] || {};
+  const inferredCity = location.city || (destinationCoords[destination]?.type === 'city' ? destination : '');
 
   const description = parseDescription(row['Product Description']);
   const inclusionsParsed = parseInclusions(row['Product Inclusions']);
@@ -155,8 +156,8 @@ export function transformRow(row) {
       packageName,
       destination,
       country: ISO2_TO_COUNTRY[iso2] || (destination === 'Antarctica' ? 'Antarctica' : destination),
-      city: location.city || '',
-      place: location.place || '',
+      city: inferredCity || '',
+      place: location.place || inferredCity || '',
       lat: coord.lat,
       lon: coord.lon,
       iso2,
