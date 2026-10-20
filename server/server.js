@@ -209,7 +209,7 @@ function generateCustomerEmailHtml(payload) {
               </p>
               ${pkg.fromPrice ? `
                 <p style="margin: 0 0 6px 0; color: #df1d22; font-weight: bold; font-size: 15px; font-family: Arial, sans-serif;">
-                  From ${Number(pkg.fromPrice).toLocaleString()} AUD <span style="font-size: 11px; color: #718096; font-weight: normal;">per person</span>
+                  From $${Number(pkg.fromPrice).toLocaleString()} AUD <span style="font-size: 11px; color: #718096; font-weight: normal;">per person</span>
                 </p>
               ` : ''}
               ${pkg.wowFactor ? `
@@ -236,14 +236,9 @@ function generateCustomerEmailHtml(payload) {
     <body style="font-family: Arial, Helvetica, sans-serif; background-color: #f4f6f8; margin: 0; padding: 20px;">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
         <tr>
-          <td style="background-color: #df1d22; text-align: center; padding: 0;">
-            <a href="https://www.flightcentre.com.au" target="_blank" style="text-decoration: none;">
-              <img 
-                src="https://content.flightcentre.com/sites/default/files/Flight-Centre.jpeg" 
-                alt="Flight Centre Banner" 
-                width="600" 
-                style="display: block; width: 100%; max-width: 600px; height: auto; border: 0; background-color: #df1d22; padding: 18px 0;" 
-              />
+          <td style="background-color: #df1d22; text-align: center; padding: 18px 20px;">
+            <a href="https://www.flightcentre.com.au" target="_blank" style="text-decoration: none; color: #ffffff; font-size: 22px; font-weight: bold; font-family: Arial, sans-serif; letter-spacing: 1px;">
+              FLIGHT CENTRE
             </a>
           </td>
         </tr>
