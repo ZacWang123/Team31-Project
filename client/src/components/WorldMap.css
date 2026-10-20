@@ -57,7 +57,6 @@ html, body {
   border-radius: 20px !important;
   border: 1px solid rgba(51, 65, 85, 0.8) !important;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7) !important;
-  /* Cap well within the viewport and scroll internally for anything taller. */
   max-height: min(80vh, 640px) !important;
   overflow-y: auto !important;
   overscroll-behavior: contain;

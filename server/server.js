@@ -40,9 +40,30 @@ const transporter = nodemailer.createTransport({
 function generateStoreLeadEmailHtml(payload) {
   const user = payload?.user || {};
   const packages = payload?.savedPackages || [];
+  const favouriteActivities = payload?.favouriteActivities || [];
   const timestamp = payload?.timestamp
     ? new Date(payload.timestamp).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
     : new Date().toLocaleString('en-AU');
+
+  // Compute Price Range
+  const prices = packages.map(p => Number(p.fromPrice)).filter(n => Number.isFinite(n) && n > 0);
+  const priceRange = prices.length > 0 
+    ? (Math.min(...prices) === Math.max(...prices) ? `$${Math.min(...prices).toLocaleString()} AUD` : `$${Math.min(...prices).toLocaleString()} – $${Math.max(...prices).toLocaleString()} AUD`)
+    : 'Not specified';
+
+  // Compute Duration Range
+  const durations = packages.map(p => {
+    const match = String(p.duration || '').match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : null;
+  }).filter(n => n !== null);
+  const durationRange = durations.length > 0
+    ? (Math.min(...durations) === Math.max(...durations) ? `${Math.min(...durations)} Days` : `${Math.min(...durations)} – ${Math.max(...durations)} Days`)
+    : 'Not specified';
+
+  // Format Preferred Activities
+  const activitiesFormatted = favouriteActivities.length > 0
+    ? favouriteActivities.map(act => act.charAt(0).toUpperCase() + act.slice(1).replace(/-/g, ' ')).join(', ')
+    : 'None specified';
 
   const packageRows = packages.length > 0
     ? packages.map(pkg => `
@@ -51,10 +72,10 @@ function generateStoreLeadEmailHtml(payload) {
             ${pkg.packageName || pkg.title || 'Travel Package'}
           </td>
           <td style="padding: 10px 12px; color: #4a5568; font-size: 13px; font-family: Arial, sans-serif;">
-            ${pkg.destination || 'N/A'}${pkg.country ? `, \${pkg.country}` : ''}
+            ${pkg.destination || 'N/A'}${pkg.country ? `, ${pkg.country}` : ''}
           </td>
           <td style="padding: 10px 12px; color: #df1d22; font-weight: bold; font-size: 13px; text-align: right; font-family: Arial, sans-serif;">
-            ${pkg.fromPrice ? `\$\${Number(pkg.fromPrice).toLocaleString()} AUD` : 'Inquire'}
+            ${pkg.fromPrice ? `${Number(pkg.fromPrice).toLocaleString()} AUD` : 'Inquire'}
           </td>
         </tr>
       `).join('')
@@ -107,10 +128,22 @@ function generateStoreLeadEmailHtml(payload) {
                 </td>
                 <td align="right" style="vertical-align: top;">
                   ${user.email ? `
-                    <a href="mailto:\${user.email}?subject=Your Flight Centre Travel Inquiry" style="background-color: #df1d22; color: #ffffff; text-decoration: none; padding: 8px 12px; font-size: 12px; font-weight: bold; border-radius: 4px; display: inline-block; font-family: Arial, sans-serif;">
+                    <a href="mailto:${user.email}?subject=Your Flight Centre Travel Inquiry" style="background-color: #df1d22; color: #ffffff; text-decoration: none; padding: 8px 12px; font-size: 12px; font-weight: bold; border-radius: 4px; display: inline-block; font-family: Arial, sans-serif;">
                       Reply to Client
                     </a>
                   ` : ''}
+                </td>
+              </tr>
+            </table>
+
+            <!-- Travel Profile Insights Box -->
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #fffaf0; border: 1px solid #feebc8; border-radius: 6px; padding: 14px; margin-bottom: 20px;">
+              <tr>
+                <td>
+                  <p style="margin: 0 0 8px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #c05621; font-weight: bold; font-family: Arial, sans-serif;">Travel Profile Insights</p>
+                  <p style="margin: 3px 0; font-size: 13px; color: #2d3748; font-family: Arial, sans-serif;"><strong>Price Range:</strong> ${priceRange}</p>
+                  <p style="margin: 3px 0; font-size: 13px; color: #2d3748; font-family: Arial, sans-serif;"><strong>Duration Range:</strong> ${durationRange}</p>
+                  <p style="margin: 3px 0; font-size: 13px; color: #2d3748; font-family: Arial, sans-serif;"><strong>Preferred Activities:</strong> ${activitiesFormatted}</p>
                 </td>
               </tr>
             </table>
@@ -172,17 +205,17 @@ function generateCustomerEmailHtml(payload) {
                 ${pkg.packageName || pkg.title || 'Travel Package'}
               </h4>
               <p style="margin: 0 0 6px 0; color: #4a5568; font-size: 13px; font-family: Arial, sans-serif;">
-                📍 <strong>${pkg.destination || 'Destination'}</strong>${pkg.country ? `, \${pkg.country}` : ''}
+                📍 <strong>${pkg.destination || 'Destination'}</strong>${pkg.country ? `, ${pkg.country}` : ''}
               </p>
               ${pkg.fromPrice ? `
                 <p style="margin: 0 0 6px 0; color: #df1d22; font-weight: bold; font-size: 15px; font-family: Arial, sans-serif;">
-                  From \$\${Number(pkg.fromPrice).toLocaleString()} AUD <span style="font-size: 11px; color: #718096; font-weight: normal;">per person</span>
+                  From ${Number(pkg.fromPrice).toLocaleString()} AUD <span style="font-size: 11px; color: #718096; font-weight: normal;">per person</span>
                 </p>
               ` : ''}
               ${pkg.wowFactor ? `
                 <div style="background-color: #fff5f5; border-left: 3px solid #df1d22; padding: 6px 10px; margin-top: 6px; border-radius: 2px;">
                   <p style="margin: 0; color: #9b2c2c; font-size: 12px; font-family: Arial, sans-serif;">
-                    ✨ <strong>Highlight:</strong> \${pkg.wowFactor}
+                    ✨ <strong>Highlight:</strong> ${pkg.wowFactor}
                   </p>
                 </div>
               ` : ''}
