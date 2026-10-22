@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+// This component renders the package search input and results list, allowing users to search for travel packages by name or destination. It handles keyboard navigation and selection of search results.
 export default function PackageSearch({ query, onQueryChange, results, onSelect, loading, getLocation }) {
   const rootRef = useRef(null);
   const [open, setOpen] = useState(false);

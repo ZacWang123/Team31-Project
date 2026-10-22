@@ -1,6 +1,7 @@
 // src/utils/mapDataBuilders.js
 import { getPackageTags, hasCoordinates } from './tagUtils';
 
+// This file contains utility functions for processing package data into structures suitable for mapping and filtering, such as building destination summaries and city indices.
 export function resolveIso3(props) {
   if (!props) return null;
   const candidates = [

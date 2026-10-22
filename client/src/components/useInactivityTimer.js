@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
+// This custom hook manages an inactivity timer that tracks user activity and triggers a warning modal after a specified idle timeout. It provides a countdown for the warning duration and allows the user to reset the session by interacting with the page.
 export const useInactivityTimer = ({
   idleTimeoutMs = 90000,
   warningDurationSec = 30,

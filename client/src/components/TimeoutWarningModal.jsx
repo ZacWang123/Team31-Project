@@ -1,5 +1,6 @@
 import React from 'react';
 
+// This component displays a modal warning the user that their session is about to expire due to inactivity. It shows a countdown timer and provides an option to keep exploring.
 const TimeoutWarningModal = ({ countdown, onKeepExploring }) => {
   return (
     <div

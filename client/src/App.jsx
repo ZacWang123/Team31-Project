@@ -26,7 +26,7 @@ function App() {
     idleTimeoutMs: 90000, 
     warningDurationSec: 30,  
     onResetSession: handleResetSession,
-    enabled: !showWelcome // 👈 Disable/pause the timer while the welcome modal is open
+    enabled: !showWelcome
   });
 
   return (

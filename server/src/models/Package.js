@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 
-// One day of a package's itinerary (from the "Product Description" column).
 const itineraryDaySchema = new mongoose.Schema(
   { day: { type: String, default: '' }, title: { type: String, default: '' }, body: { type: String, default: '' } },
   { _id: false }
@@ -18,9 +17,6 @@ const inclusionItemSchema = new mongoose.Schema(
 // that now comes from this live database instead of a bundled JSON file.
 const packageSchema = new mongoose.Schema(
   {
-    // packageName is the natural key - Flight Centre's sheet doesn't carry a
-    // stable numeric ID, and it's what titles are keyed on everywhere else
-    // in the app already (getPkgKey, arePackagesSame).
     packageName: { type: String, required: true, unique: true, index: true },
     destination: { type: String, required: true, index: true },
     country: { type: String, default: '' },
@@ -34,9 +30,6 @@ const packageSchema = new mongoose.Schema(
     fromPrice: { type: Number, default: null },
     duration: { type: String, default: '' },
     image: { type: String, default: '' },
-    // Package detail content, parsed out of the sheet's "Product Description"
-    // and "Product Inclusions" JSON columns. Empty when a row has none (or
-    // its JSON is malformed) - the frontend hides those sections then.
     summary: { type: String, default: '' },
     itinerary: { type: [itineraryDaySchema], default: [] },
     inclusions: {
@@ -45,9 +38,6 @@ const packageSchema = new mongoose.Schema(
       included: { type: [String], default: [] },
       excluded: { type: [String], default: [] },
     },
-    // Set/refreshed on every sync run - lets /api/packages report how fresh
-    // the data is, and lets a future "remove rows no longer in the sheet"
-    // pass find anything that didn't get touched by the latest sync.
     lastSyncedAt: { type: Date, default: Date.now },
   },
   { timestamps: true }

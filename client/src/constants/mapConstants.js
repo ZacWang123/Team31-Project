@@ -1,5 +1,6 @@
 // src/constants/mapConstants.js
 
+// Filter options for the Explore page, each with a unique ID, label, and icon class for display.
 export const FILTER_OPTIONS = [
   { id: 'beach', label: 'Beach & Coastal', icon: 'fi-br-umbrella-beach' },
   { id: 'adventure', label: 'Adventure', icon: 'fi-br-hiking' },

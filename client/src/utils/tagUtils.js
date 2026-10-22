@@ -1,7 +1,7 @@
 // src/utils/tagUtils.js
 
 
-
+// This file contains utility functions for handling package tags, country names, and coordinate checks, which are used throughout the application for filtering and displaying travel packages.
 export const TAG_RULES = [
 
   // --- Category Filters (matches FILTER_OPTIONS in mapConstants) ---

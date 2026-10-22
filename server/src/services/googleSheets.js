@@ -35,8 +35,6 @@ export function sheetSourceFromEnv(env = process.env) {
   const envCsvUrl = (env.GOOGLE_SHEET_CSV_URL || '').trim();
 
   return {
-    // an explicit link wins; otherwise use the default link, unless someone
-    // has set up the API way (ID + key) on purpose
     csvUrl: envCsvUrl || (hasApiCreds ? '' : DEFAULT_SHEET_CSV_URL),
     sheetId: env.GOOGLE_SHEET_ID,
     apiKey: env.GOOGLE_SHEETS_API_KEY,
@@ -50,7 +48,7 @@ export function isSheetConfigured({ csvUrl, sheetId, apiKey }) {
 
 // header row + data rows -> array of objects keyed by column name
 function rowsFromValues(values) {
-  if (values.length < 2) return []; // header row only, or empty sheet
+  if (values.length < 2) return [];
 
   const [header, ...rows] = values;
   return rows
@@ -71,8 +69,6 @@ async function fetchPublishedCsvRows(csvUrl) {
   }
 
   const text = await res.text();
-  // If the sheet stops being published, Google can answer 200 with a web page
-  // instead of CSV - catch that so we don't "sync" a pile of HTML.
   if (/^\s*<(!doctype|html)/i.test(text)) {
     throw new Error('Published sheet link returned a web page, not CSV - check the link ends with output=csv and the tab is published.');
   }

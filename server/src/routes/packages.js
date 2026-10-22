@@ -3,11 +3,10 @@ import Package from '../models/Package.js';
 import { runSync } from '../services/sync.js';
 import { sheetSourceFromEnv } from '../services/googleSheets.js';
 
+// This router handles package-related API endpoints, including fetching all packages and triggering a sync with the Google Sheet source. It uses the Package model to interact with the MongoDB database and the runSync function to update package data from the external source.
+
 const router = Router();
 
-// GET /api/packages - what the frontend actually consumes. Same shape as
-// the old bundled packages.json array, so buildDestinations() and friends
-// in WorldMap.jsx need no logic changes, only the data source.
 router.get('/packages', async (req, res) => {
   try {
     const packages = await Package.find({}, { _id: 0, __v: 0 }).lean();
@@ -17,8 +16,6 @@ router.get('/packages', async (req, res) => {
   }
 });
 
-// POST /api/sync - manually re-pull the Google Sheet on demand (the server
-// also does this on startup and on a timer - see index.js).
 router.post('/sync', async (req, res) => {
   try {
     const summary = await runSync(sheetSourceFromEnv());

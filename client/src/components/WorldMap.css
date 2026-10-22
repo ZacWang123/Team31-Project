@@ -28,14 +28,6 @@ html, body {
 /* ==========================================================================
    MapLibre Popup & Pin Styles
    ========================================================================== */
-/* Force the popup to always render centered on screen instead of anchored
-   to the clicked pin. A pin-anchored popup can still end up positioned such
-   that its bottom edge falls past the viewport, and since this is a
-   full-screen map with no page-level scroll, that overflow was simply
-   unreachable - no amount of internal scrolling fixes a box whose position
-   itself is off-screen. Centering guarantees a max-height'd box always sits
-   fully in view. `!important` here beats MapLibre's inline position style,
-   which it re-applies on every map move/zoom. */
 .maplibregl-popup {
   max-width: 420px !important;
   z-index: 50;
@@ -91,19 +83,11 @@ html, body {
   border-top-color: #0f172a !important;
 }
 
-/* Red teardrop pin image (client/src/assets/location-pin.png, a Flaticon
-   free icon). anchor: 'bottom' on the Marker (see WorldMap.jsx) points the
-   image's tip at the exact coordinate. */
 .country-pin {
   cursor: pointer;
   z-index: 10;
 }
 
-/* Scale the image itself on hover, not .country-pin - MapLibre sets an
-   inline transform on .country-pin for positioning, and an inline style
-   always wins over a stylesheet rule (:hover included), so a transform
-   on .country-pin itself would silently never apply. transform-origin is
-   the bottom so the tip stays on its coordinate while it grows. */
 .country-pin img {
   display: block;
   width: 34px;
@@ -312,10 +296,6 @@ html, body {
 /* ==========================================================================
    Modals & Profile Styles
    ========================================================================== */
-/* Transparent top bar - just the logo and profile button floating over
-   the map, no background/border of its own. pointer-events is off on the
-   bar itself (so the empty middle of it doesn't block map dragging) and
-   back on for the two actual controls inside it. */
 .top-bar {
   position: absolute;
   top: 0;
@@ -665,7 +645,6 @@ html, body {
   margin-top: 4px;
 }
 
-/* Modal Specific Packages Buttons */
 .profile-save-btn {
   flex: 1;
   background-color: #334155;
@@ -739,7 +718,6 @@ html, body {
   display: inline;
 }
 
-/* Package Detail View Elements inside Modal */
 .modal-package-dest {
   font-size: 12px;
   font-weight: 600;
@@ -831,10 +809,6 @@ html, body {
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   padding: 16px;
-  /* So max-width (used on small screens to keep clear of the zoom/reset
-     controls) constrains the actual rendered box including padding and
-     border, not just the content area - otherwise the real box ends up
-     wider than the max-width value and can overlap those controls. */
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -904,9 +878,6 @@ html, body {
   color: #ffffff;
 }
 
-/* Mobile stand-in for .chip-container (a single native <select>, since a
-   wrapping row of pill buttons gets cramped below 768px). Hidden by
-   default, only shown by the max-width: 768px query further down. */
 .filter-select-mobile {
   display: none;
   width: 100%;
@@ -967,9 +938,9 @@ html, body {
 
 .city-pin {
   display: flex;
-  flex-direction: column; /* Stack label above, pin below */
+  flex-direction: column;
   align-items: center;
-  gap: 4px; /* Space between label and pin */
+  gap: 4px;
   cursor: pointer;
   z-index: 11;
   min-height: 44px;
@@ -986,8 +957,6 @@ html, body {
   pointer-events: auto;
 }
 
-/* Opacity only. Animating transform here would override the positioning
-   transform MapLibre writes inline on the marker element. */
 @keyframes city-pin-in {
   from {
     opacity: 0;
@@ -997,9 +966,6 @@ html, body {
   }
 }
 
-/* ---- the pin ---- */
-/* Same teardrop image as .country-pin, just smaller since it sits next
-   to a name+count label instead of standing alone. */
 .city-pin-marker {
   flex-shrink: 0;
   width: 24px;
@@ -1010,7 +976,6 @@ html, body {
   -webkit-user-drag: none;
 }
 
-/* ---- the label pill ---- */
 .city-pin-label {
   display: inline-flex;
   align-items: center;
@@ -1033,7 +998,6 @@ html, body {
   letter-spacing: 0.2px;
 }
 
-/* ---- package count badge ---- */
 .city-pin-count {
   display: inline-flex;
   align-items: center;
@@ -1051,7 +1015,6 @@ html, body {
   color: #38bdf8;
 }
 
-/* ---- hover ---- */
 .city-pin:hover .city-pin-marker {
   transform: scale(1.18);
   filter: drop-shadow(0 0 6px rgba(217, 34, 40, 0.8));
@@ -1062,7 +1025,6 @@ html, body {
   border-color: #38bdf8;
 }
 
-/* ---- currently open ---- */
 .city-pin.is-active .city-pin-marker {
   transform: scale(1.25);
   filter: drop-shadow(0 0 8px rgba(217, 34, 40, 1));
@@ -1073,14 +1035,12 @@ html, body {
   border-color: #38bdf8;
 }
 
-/* ---- filtered out ---- */
 .city-pin.is-dimmed {
   opacity: 0.28;
   pointer-events: none;
   animation: none;
 }
 
-/* ---- popup header variant for cities ---- */
 .popup-dest-region {
   font-size: 11px;
   font-weight: 600;
@@ -1090,9 +1050,6 @@ html, body {
   margin-bottom: 2px;
 }
 
-/* ---- "back to world view" control, shown while zoomed to a country ----
-   Sits below .top-bar (not top:20px like before) since the logo now
-   permanently occupies that top-left spot. */
 .back-to-world-btn {
   position: absolute;
   top: 76px;
@@ -1134,7 +1091,6 @@ html, body {
   }
 }
 
-/* Touchscreen: nothing here should be text-selectable. */
 .city-pin,
 .city-popup .popup-header-wrapper,
 .city-popup .browse-more-btn,
@@ -1144,7 +1100,6 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Modal backdrop and wider box */
 .modal-backdrop-profile {
   position: fixed;
   top: 0;
@@ -1158,10 +1113,6 @@ html, body {
   z-index: 1000;
 }
 
-/* Travel Profile modal - light theme (white cards on a light grey page,
-   Flight Centre red accents). Close-button styling below is scoped to
-   .profile-header-light so it can't leak into the package-detail modal,
-   which has its own scoped rules in PackagePopupTheme.css. */
 .profile-modal-wide {
   background-color: #f1f5f9;
   width: 90vw;
@@ -1187,7 +1138,6 @@ html, body {
   color: #0f172a;
 }
 
-/* Red corner flag, top-left */
 .profile-header-light::before {
   content: '';
   position: absolute;
@@ -1250,7 +1200,6 @@ html, body {
   background: #f1f5f9;
 }
 
-/* Three Column Layout Engine */
 .three-column-layout {
   display: flex;
   flex-direction: row;
@@ -1295,7 +1244,6 @@ html, body {
   -webkit-user-drag: none;
 }
 
-/* Left Column Elements */
 .profile-section-block {
   margin-bottom: 16px;
   border-bottom: 1px solid #f1f5f9;
@@ -1388,7 +1336,6 @@ html, body {
   color: #334155;
 }
 
-/* Middle Column Shortlist */
 .shortlist-scroll-area {
   display: flex;
   flex-direction: column;
@@ -1466,7 +1413,6 @@ html, body {
   color: #d92228;
 }
 
-/* Right Column Form */
 .save-form-instruction {
   font-size: 0.85rem;
   color: #64748b;
@@ -1528,7 +1474,7 @@ html, body {
 }
 
 /* ==========================================================================
-   FCIPT3-25: Live database loading/error state
+   Live database loading/error state
    ========================================================================== */
 .live-db-status {
   position: absolute;
@@ -1573,10 +1519,6 @@ html, body {
   to { transform: rotate(360deg); }
 }
 
-/* Floating package search - width tracks .filter-panel's own width
-   (100% of it, not some separate fixed/vw-based number) so it always
-   matches the panel it sits in, including whenever the panel itself
-   gets narrower on smaller screens. */
 .package-search {
   width: 100%;
   z-index: 30;
@@ -1641,8 +1583,7 @@ html, body {
 .package-search-result strong { font-size: 13px; font-weight: 600; color: #0f172a; }
 .package-search-result span { font-size: 12px; color: #64748b; }
 .package-search-empty { margin: 0; padding: 15px; font-size: 13px; color: #64748b; }
-/* Cyan glow (kept distinct from the pins' own red) so a search match
-   pops visually instead of blending into every other pin on the map. */
+
 .country-pin.is-search-match img {
   transform: scale(1.2);
   filter: drop-shadow(0 0 4px #38bdf8) drop-shadow(0 0 10px #38bdf8);
@@ -1654,11 +1595,6 @@ html, body {
 .city-pin.is-search-match .city-pin-label { border-color: #38bdf8; }
 
 @media (max-width: 600px) {
-  /* .package-search is never position:absolute (it's a normal flex child
-     of .filter-panel), so the old top/left here never did anything - and
-     its own separate width was silently fighting the "match the panel"
-     rule above it at these widths. Panel width is controlled below via
-     .filter-panel's own max-width instead. */
   .package-search-results { max-height: min(30vh, 220px); }
   .filter-panel { bottom: 12px; left: 12px; max-width: calc(100vw - 96px); min-width: 0; }
   .desktop-controls { bottom: 12px; right: 12px; }

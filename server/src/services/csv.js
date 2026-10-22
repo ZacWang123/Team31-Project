@@ -8,7 +8,6 @@ export function parseCsv(text) {
   let field = '';
   let inQuotes = false;
 
-  // Drop a leading byte-order mark if Google (or Excel) added one.
   const src = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 
   for (let i = 0; i < src.length; i += 1) {
@@ -17,7 +16,7 @@ export function parseCsv(text) {
     if (inQuotes) {
       if (ch === '"') {
         if (src[i + 1] === '"') {
-          field += '"'; // "" inside quotes = one literal quote
+          field += '"';
           i += 1;
         } else {
           inQuotes = false;
@@ -44,7 +43,6 @@ export function parseCsv(text) {
     }
   }
 
-  // last line without a trailing newline
   if (field !== '' || row.length > 0) {
     row.push(field);
     rows.push(row);

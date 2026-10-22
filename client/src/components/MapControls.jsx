@@ -1,5 +1,7 @@
 import React from 'react';
 
+// This component renders the map controls for zooming in, zooming out, and resetting the map view.
+
 export default function MapControls({ onZoomIn, onZoomOut, onReset }) {
   return (
     <div className="desktop-controls">

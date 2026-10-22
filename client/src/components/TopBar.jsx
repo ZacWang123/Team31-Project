@@ -2,6 +2,7 @@
 import React from 'react';
 import pinIcon from '../assets/location-pin.png';
 
+// This component renders the top bar of the application, which includes the logo and a button to view the user's travel profile.
 export default function TopBar({ onViewProfile }) {
   return (
     <div className="top-bar">

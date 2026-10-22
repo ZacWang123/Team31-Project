@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
+// This context manages the user's travel profile, including saved and viewed packages, and persists this data to localStorage for session continuity.
 const TravelProfileContext = createContext(null);
 
 export const TravelProfileProvider = ({ children }) => {
@@ -72,12 +72,11 @@ export const TravelProfileProvider = ({ children }) => {
     if (!pkg) return;
     setViewedPackages((prev) => {
       const exists = prev.some((p) => arePackagesSame(p, pkg));
-      if (exists) return prev; // Avoid duplicates, keep history clean
-      return [pkg, ...prev]; // Add newest viewed to the top
+      if (exists) return prev;
+      return [pkg, ...prev];
     });
   };
 
-  // ✅ Moved inside and fixed localStorage key names
   const resetProfile = () => {
     setSavedPackages([]);
     setViewedPackages([]);
@@ -94,7 +93,7 @@ export const TravelProfileProvider = ({ children }) => {
         isPackageSaved,
         trackFilterClick,
         trackPackageClick,
-        resetProfile, // ✅ Added here so WorldMap can access it
+        resetProfile,
       }}
     >
       {children}

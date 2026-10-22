@@ -4,6 +4,8 @@ import PackageSearch from './PackageSearch';
 import { FILTER_OPTIONS } from '../constants/mapConstants';
 import pinIcon from '../assets/location-pin.png';
 
+// This component renders the filter panel for the Explore page, including search functionality and filter options.
+
 export default function FilterPanel({
   searchQuery,
   updateSearch,
@@ -15,7 +17,6 @@ export default function FilterPanel({
   toggleFilter,
   trackFilterClick,
   setActiveFilters,
-  // New props for duration and price ranges
   maxDuration,
   setMaxDuration,
   maxPrice,
@@ -70,8 +71,7 @@ export default function FilterPanel({
             })}
           </div>
 
-          {/* ---- NEW: Duration & Price Sliders/Inputs ---- */}
-          {/* ---- Duration & Price Sliders (Maxed out = Any) ---- */}
+
           <div className="numeric-filters" style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div className="filter-slider-group">
               <label style={{ fontSize: '12px', fontWeight: '600', color: '#334155', display: 'flex', justifyContent: 'space-between' }}>

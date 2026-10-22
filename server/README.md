@@ -69,12 +69,3 @@ on the map - it can't geocode on the fly. If you add a row for a brand new
 destination and it shows up as "skipped" in the sync log, add an entry for
 it to `src/data/destinationCoords.json` (lat/lon/country_code), then
 re-sync (`POST /api/sync`, or wait for the timer).
-
-## Known limitation
-
-City-level packages (Sydney, Melbourne, etc. - `client/src/data/cityPackages.json`)
-are a separate, still-static dataset built on top of the Google Sheet data
-for FCIPT3-10. They are **not** part of this sync - that's a reasonable
-follow-up if the team wants the whole app on one live source, but it's a
-distinct set of packages Flight Centre didn't provide, so it wasn't in
-scope here.

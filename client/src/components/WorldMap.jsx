@@ -6,7 +6,6 @@ import { useTravelProfile } from '../context/TravelProfileContext';
 import './WorldMap.css';
 import './PackagePopupTheme.css';
 import { FILTER_OPTIONS } from '../constants/mapConstants';
-// import { filterPackages } from '../utils/packageUtils';
 import { formatLocationName } from '../utils/locationUtils';
 import MapControls from './MapControls';
 import FilterPanel from './FilterPanel';
@@ -22,17 +21,11 @@ import { resolveIso3, boundsForCities, buildDestinations, buildCityIndex } from 
 // --- Helper Functions Matched to Package Schema ---
 export function parsePackageDuration(pkg) {
   if (!pkg) return null;
-
-  // 1. Read directly from the newly mapped `duration` field (synced from Google Sheet)
   const rawText = String(pkg.duration || pkg.packageName || pkg.summary || '');
-  
-  // 2. Extract the number preceding 'night', 'day', 'n', or 'd'
   const match = rawText.match(/(\d+)\s*(?:night|day|n|d)/i);
   if (match) {
     return parseInt(match[1], 10);
   }
-
-  // 3. Fallback to itinerary length if present
   if (Array.isArray(pkg.itinerary) && pkg.itinerary.length > 0) {
     return pkg.itinerary.length;
   }
@@ -42,25 +35,16 @@ export function parsePackageDuration(pkg) {
 
 export function parsePackagePrice(pkg) {
   if (!pkg) return null;
-
-  // Schema explicitly uses `fromPrice` (Number)
   if (typeof pkg.fromPrice === 'number') return pkg.fromPrice;
-
-  // Fallback if it arrives as a string or alternate property
   const rawPrice = pkg.fromPrice ?? pkg.price;
   if (rawPrice === undefined || rawPrice === null || rawPrice === '') return null;
-
   const cleaned = String(rawPrice).replace(/[^0-9.]/g, '');
   return cleaned ? parseFloat(cleaned) : null;
 }
 
-// FCIPT3-25: packages now come from the live database (synced from Flight
-// Centre's Google Sheet) instead of the bundled packages.json. City-level
-// pins (cityPackagesData, above) are a separate, still-static dataset -
-// out of scope for this ticket.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
-/* FCIPT3-10: how many packages a city pin shows before "browse more" appears */
+/* How many packages a city pin shows before "browse more" appears */
 const CITY_PREVIEW_LIMIT = 3;
 
 /* Above this zoom we consider the user to be looking at a single country */
@@ -115,8 +99,8 @@ function searchLocation(pkg) {
 }
 
 /*
- * FCIPT3-10 city popup.
- * Shows at most CITY_PREVIEW_LIMIT packages, with a button to reveal the rest.
+ * City popup HTML builder - used for city pins, which can have multiple packages.
+ * Shows at most 3 packages, with a button to reveal the rest.
  * Reuses the existing .package-card / .browse-more-btn styles so city and
  * country popups stay visually consistent.
  */
@@ -239,6 +223,9 @@ function buildPopupHTML(dest, savedPackages = []) {
 }
 
 export default function WorldMap() {
+  // ========================================
+  // Map & Popup State
+  // =========================================
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -246,14 +233,15 @@ export default function WorldMap() {
   const preZoomViewRef = useRef(null);
   const popupSessionRef = useRef(0);
   const activeDestRef = useRef(null);
-
-  /* FCIPT3-10 */
   const cityMarkersRef = useRef([]);
   const cityPopupRef = useRef(null);
   const cityExpandedRef = useRef(false);
   const activeCityRef = useRef(null);
   const activeCountryRef = useRef(null);
 
+  // ========================================
+  // Interactive Map State
+  // =========================================  
   const [mapLoaded, setMapLoaded] = useState(false);
   const [activeCountry, setActiveCountry] = useState(null);
   const [activeFilters, setActiveFilters] = useState([]);
@@ -265,6 +253,9 @@ export default function WorldMap() {
   const [maxDuration, setMaxDuration] = useState(null);
   const [maxPrice, setMaxPrice] = useState(null);
 
+  // ========================================
+  // Travel Profile State
+  // ========================================= 
   const NOMINATED_STORE_EMAIL = "team31qut736@gmail.com";
   const [profileName, setProfileName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
@@ -274,12 +265,14 @@ export default function WorldMap() {
   const [saveProfileLocal, setSaveProfileLocal] = useState(true);
   const [receiveDeals, setReceiveDeals] = useState(false);
 
-  // FCIPT3-25: live database instead of a bundled JSON import. Editing the
-  // Google Sheet and re-syncing changes what shows here with no rebuild.
+  // ========================================
+  // Live Database State
+  // =========================================  
   const [packagesData, setPackagesData] = useState([]);
   const [packagesLoading, setPackagesLoading] = useState(true);
   const [packagesError, setPackagesError] = useState(null);
 
+  // useEffect to fetch packages from the live database on component mount
   useEffect(() => {
     let cancelled = false;
 
@@ -316,6 +309,7 @@ export default function WorldMap() {
   } = travelContext;
 
   const savedPackagesRef = useRef(savedPackages);
+  // Keep savedPackagesRef current for use in map popups and other callbacks
   useEffect(() => {
     savedPackagesRef.current = savedPackages;
 
@@ -332,19 +326,8 @@ export default function WorldMap() {
 
   const destinations = useMemo(() => buildDestinations(packagesData), [packagesData]);
   
-  // Make sure cityPackagesData is passed in here:
   const cityIndex = useMemo(() => buildCityIndex(packagesData), [packagesData]);
 
-  /*
-   * A country like France only shows up here via Paris in cityPackages.json
-   * - it has no entry in the live database, so it never got a world-view
-   * red pin, even though clicking the bare landmass already worked (the
-   * country-click-layer handler below keys off cityIndex, not destinations).
-   * Without a pin there though, nobody knows to click there. One synthetic
-   * pin per such country, positioned at its most-packaged city, fixes the
-   * discoverability gap without duplicating a destination pin for
-   * countries that already have one.
-   */
   const countryOnlyPins = useMemo(() => {
     const coveredIso3 = new Set(destinations.map((d) => d.iso3).filter(Boolean));
     return Object.entries(cityIndex)
@@ -684,7 +667,7 @@ export default function WorldMap() {
   
   
   /* ----------------------------------------------------------------------
-     FCIPT3-10: city pins
+     City pins
      When a country fills the view, swap the world-level pins out for
      labelled city pins built from cityPackages.json.
      ---------------------------------------------------------------------- */
@@ -707,8 +690,6 @@ export default function WorldMap() {
     activeCityRef.current = null;
     cityExpandedRef.current = false;
 
-    /* World view: keep country pins; matching city pins can also show during search. */
-    /* World view: show country pins; Zoomed view: hide country pins and show city pins */
     if (!activeCountry) {
       markersRef.current.forEach(({ element }) => {
         if (element) element.style.display = '';
@@ -804,7 +785,6 @@ export default function WorldMap() {
         const popupElem = popup.getElement();
         if (popupElem) {
           popupElem.addEventListener('click', (ev) => {
-            /* Browse more / show fewer */
             const browseBtn = ev.target.closest('.browse-more-btn');
             if (browseBtn) {
               ev.stopPropagation();
@@ -813,7 +793,6 @@ export default function WorldMap() {
               return;
             }
 
-            /* Save / unsave */
             const saveBtn = ev.target.closest('.save-package-btn');
             if (saveBtn) {
               ev.stopPropagation();
@@ -825,7 +804,6 @@ export default function WorldMap() {
               return;
             }
 
-            /* Open the full package detail modal */
             const cardEl = ev.target.closest('.package-card');
             if (cardEl) {
               const list = cityExpandedRef.current
@@ -865,7 +843,7 @@ export default function WorldMap() {
     });
   }, [activeCountry, normalizedSearch, matchingPackages, mapLoaded]);
 
-  /* Keep search, filters, and marker highlighting in sync. */
+  // Keep search, filters, and marker highlighting in sync. 
   useEffect(() => {
     cityMarkersRef.current.forEach(({ element, city }) => {
       if (!element || !city) return;
@@ -930,10 +908,8 @@ export default function WorldMap() {
       cityMarkersRef.current.forEach(({ element, city }) => {
         if (!element || !city) return;
 
-        // Safely fallback if city.packages is undefined
         const cityPackages = Array.isArray(city.packages) ? city.packages : [];
 
-        // Filter city packages against active filters
         const filteredPackages = hasActiveFilters
           ? cityPackages.filter((pkg) => matchingKeysSet.has(getPkgKey(pkg)))
           : cityPackages;
@@ -963,7 +939,6 @@ export default function WorldMap() {
       });
     }
 
-    // 4. UPDATE MAP COUNTRY SHADING OVERLAY
     try {
       const map = mapInstanceRef.current;
       if (!map || typeof map.getLayer !== 'function' || !map.getLayer('country-dim-overlay')) return;
@@ -1021,20 +996,11 @@ export default function WorldMap() {
   const isPackageSaved = selectedPackage ? savedPackages.some((s) => arePackagesSame(s, selectedPackage)) : false;
   const selectedPkgTitle = selectedPackage ? (selectedPackage.packageName || selectedPackage.title || selectedPackage.name || 'Package') : '';
 
-  // FCIPT3-30: "similar" = same destination first (score 10), then any shared
-  // filter tag (ski/cruise/all-inclusive/stopover/tour), highest score first,
-  // capped at 4 so the modal doesn't grow unbounded on well-tagged packages.
   const similarPackages = useMemo(() => {
     if (!selectedPackage) return [];
     const currentTags = getPackageTags(selectedPackage);
     const safeData = Array.isArray(packagesData) ? packagesData : [];
 
-    // No score-floor filter here on purpose: a package with no shared
-    // destination/tags (e.g. UK's only package, which doesn't match any of
-    // the Ski/Cruise/All-Inclusive/Stopover/Tour keywords) would otherwise
-    // score 0 against everything and the section would just vanish - which
-    // reads as broken, not as "nothing relevant". Real matches (score > 0)
-    // still always sort ahead of these fallback ones.
     const scored = safeData
       .filter((pkg) => pkg && !arePackagesSame(pkg, selectedPackage))
       .map((pkg) => {

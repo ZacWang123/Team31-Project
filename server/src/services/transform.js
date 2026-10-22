@@ -15,9 +15,7 @@ const ISO2_TO_ISO3 = {
   au: 'AUS', us: 'USA', nz: 'NZL', qa: 'QAT', in: 'IND',
   th: 'THA', ca: 'CAN', cn: 'CHN', sg: 'SGP', gb: 'GBR',
   vn: 'VNM', jp: 'JPN', mv: 'MDV', fj: 'FJI', aq: 'ATA',
-  // South America
   br: 'BRA', ar: 'ARG', cl: 'CHL', co: 'COL', ec: 'ECU', pe: 'PER',
-  // Africa + Middle East
   za: 'ZAF', ma: 'MAR', ke: 'KEN', tz: 'TZA', zw: 'ZWE', na: 'NAM', eg: 'EGY', mu: 'MUS', ae: 'ARE',
 };
 
@@ -25,9 +23,7 @@ const ISO2_TO_COUNTRY = {
   au: 'Australia', us: 'United States', nz: 'New Zealand', qa: 'Qatar', in: 'India',
   th: 'Thailand', ca: 'Canada', cn: 'China', sg: 'Singapore', gb: 'United Kingdom',
   vn: 'Vietnam', jp: 'Japan', mv: 'Maldives', fj: 'Fiji', aq: 'Antarctica',
-  // South America
   br: 'Brazil', ar: 'Argentina', cl: 'Chile', co: 'Colombia', ec: 'Ecuador', pe: 'Peru',
-  // Africa + Middle East
   za: 'South Africa', ma: 'Morocco', ke: 'Kenya', tz: 'Tanzania', zw: 'Zimbabwe', na: 'Namibia', eg: 'Egypt', mu: 'Mauritius', ae: 'United Arab Emirates',
 };
 
@@ -40,8 +36,6 @@ const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1488646953014-85cb44e2
 // percent-encoding it to %2B 403s against Flight Centre's CDN.
 function buildImageUrl(rawPath) {
   if (!rawPath || !rawPath.trim()) return null;
-  // A full link (e.g. a photo from Wikimedia Commons) is used as it is - only
-  // the Flight Centre supplier paths get the site address put in front.
   if (/^https?:\/\//i.test(rawPath.trim())) return rawPath.trim();
   const decoded = decodeURIComponent(rawPath.trim());
   return IMAGE_BASE + encodePathPreservingPlus(decoded);

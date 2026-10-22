@@ -1,5 +1,6 @@
 import React from 'react';
 
+// This component displays a welcome modal with information about the interactive travel experience. It includes a banner image, a welcome message, and instructions for the user to begin exploring.
 const WelcomeModal = ({ onClose }) => {
   return (
     <div

@@ -1,6 +1,7 @@
 // src/components/StatusBanner.jsx
 import React from 'react';
 
+// This component displays a status banner indicating the loading state or any errors related to fetching live package data from the server.
 export default function StatusBanner({ loading, error, apiBaseUrl }) {
   if (loading) {
     return (

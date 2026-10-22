@@ -5,7 +5,7 @@ import { formatLocationName } from '../utils/locationUtils';
 import { getPackageTags } from '../utils/tagUtils';
 import pinIcon from '../assets/location-pin.png';
 
-// Helper parsers for price and duration extraction
+// This component renders the Travel Profile modal, which displays the user's travel preferences, recently viewed packages, favourite activities, and a shortlist of saved packages. It also includes a form for the user to save their profile and receive a copy via email or connect with a Flight Centre travel expert.
 function parseDuration(pkg) {
   if (!pkg) return null;
   const rawText = String(pkg.duration || pkg.packageName || pkg.summary || '');
